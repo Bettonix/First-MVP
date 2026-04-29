@@ -1,0 +1,44 @@
+# --- DEPENDÊNCIAS (PESADO) ---
+# Jamais versionar node_modules; qualquer um reconstrói com 'npm install'
+node_modules/
+.pnp
+.pnp.*
+
+# --- BUILD E SAÍDAS (TEMPORÁRIO) ---
+# Arquivos gerados durante a compilação do Next.js
+.next/
+out/
+build/
+dist/
+.vercel
+
+# --- SEGURANÇA E SEGREDOS (CRÍTICO) ---
+# Bloqueia TODAS as variações de arquivos de ambiente
+.env
+.env*
+!.env.example
+*.pem
+
+# --- PRISMA E BANCO DE DADOS ---
+# Se usar SQLite local ou arquivos gerados pelo Prisma
+/prisma/*.db
+/prisma/*.db-journal
+/src/generated/
+
+# --- LOGS E DEBUG ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- SISTEMA E IDEs ---
+# Lixo do Windows/Mac e configurações do VS Code
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- CACHE ---
+.turbo/

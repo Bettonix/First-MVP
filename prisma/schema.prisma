@@ -1,0 +1,73 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Vendedor {
+  id        String   @id @default(cuid()) @map("tenant_id") // Atua como Tenant ID
+  authId    String   @unique // ID gerado pelo Supabase Auth
+  nomeLoja  String
+  criadoEm  DateTime @default(now())
+
+  @@index([authId])
+}
+
+model Turno {
+  id                   BigInt    @id @default(autoincrement())
+  tenantId             String    @map("tenant_id")
+  status               String    @default("ABERTO") // ABERTO, FECHADO
+  valorInicialCentavos Int       @default(0)
+  valorFinalCentavos   Int?      // Preenchido apenas no fechamento
+  abertoEm             DateTime  @default(now())
+  fechadoEm            DateTime?
+  
+  vendas               Venda[]
+  movimentacoes        MovimentacaoFinanceira[]
+
+  @@index([tenantId, status]) 
+}
+
+model MovimentacaoFinanceira {
+  id              BigInt   @id @default(autoincrement())
+  tenantId        String   @map("tenant_id")
+  turnoId         BigInt
+  turno           Turno    @relation(fields: [turnoId], references: [id])
+  tipo            String   // 'ENTRADA' (Reforço), 'SAIDA' (Sangria)
+  valorCentavos   Int
+  motivo          String
+  criadoEm        DateTime @default(now())
+
+  @@index([tenantId, turnoId])
+}
+
+model Produto {
+  id             BigInt   @id @default(autoincrement())
+  tenantId       String   @map("tenant_id")
+  nome           String
+  precoCentavos  Int
+  estoqueAtual   Int      @default(0)
+  estoqueInicial Int      @default(0)
+  isFavorito     Boolean  @default(true)
+  
+  @@index([tenantId, isFavorito])
+}
+
+model Venda {
+  id              BigInt    @id @default(autoincrement())
+  tenantId        String    @map("tenant_id")
+  turnoId         BigInt
+  turno           Turno     @relation(fields: [turnoId], references: [id])
+  
+  totalCentavos   Int
+  metodoPagto     String
+  pixId           String?
+  
+  itens           Json      
+
+  criadoEm        DateTime  @default(now())
+
+  @@index([tenantId, turnoId, criadoEm]) 
+}
