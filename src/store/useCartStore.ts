@@ -1,19 +1,27 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeCentavos } from '@/lib/currency';
 
-// O Schema de Tipagem reflete o estrito da API e Prisma
+// ─── Cart Item ─────────────────────────────────────────────────
+
 export interface CartItem {
-  produtoId: bigint;
+  produtoId: string;
   nome: string;
   quantidade: number;
   precoCentavos: number;
+  prepared: boolean; // Toggle: item preparado/entregue
 }
 
 interface CartState {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, 'quantidade'>) => void;
-  removeItem: (produtoId: bigint) => void;
+  descontoCentavos: number;
+  addItem: (item: Omit<CartItem, 'quantidade' | 'prepared'>) => void;
+  removeItem: (produtoId: string) => void;
+  togglePrepared: (produtoId: string) => void;
+  setItems: (items: CartItem[]) => void;
+  setDesconto: (centavos: number) => void;
   clearCart: () => void;
+  subtotalCentavos: () => number;
   totalCentavos: () => number;
 }
 
@@ -21,50 +29,52 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      
+      descontoCentavos: 0,
+
       addItem: (newItem) => set((state) => {
-        const existingItem = state.items.find(i => i.produtoId === newItem.produtoId);
-        if (existingItem) {
+        // Guard: ensure precoCentavos is always a valid integer
+        const preco = safeCentavos(newItem.precoCentavos);
+        const existing = state.items.find(i => i.produtoId === newItem.produtoId);
+        if (existing) {
           return {
-            items: state.items.map(i => 
-              i.produtoId === newItem.produtoId 
+            items: state.items.map(i =>
+              i.produtoId === newItem.produtoId
                 ? { ...i, quantidade: i.quantidade + 1 }
                 : i
             )
           };
         }
-        return { items: [...state.items, { ...newItem, quantidade: 1 }] };
+        return { items: [...state.items, { ...newItem, precoCentavos: preco, quantidade: 1, prepared: false }] };
       }),
-      
+
       removeItem: (produtoId) => set((state) => ({
         items: state.items.filter(i => i.produtoId !== produtoId)
       })),
+
+      togglePrepared: (produtoId) => set((state) => ({
+        items: state.items.map(i =>
+          i.produtoId === produtoId ? { ...i, prepared: !i.prepared } : i
+        )
+      })),
+
+      setItems: (items) => set({ 
+        items: items.map(i => ({ ...i, precoCentavos: safeCentavos(i.precoCentavos) }))
+      }),
       
-      clearCart: () => set({ items: [] }),
-      
-      totalCentavos: () => get().items.reduce((total, item) => total + (item.precoCentavos * item.quantidade), 0),
-    }),
-    {
-      name: 'pdv-cart-storage',
-      // BigInt não é serializável por padrão no JSON. 
-      // Adicionamos custom replacer e reviver.
-      storage: {
-        getItem: (name) => {
-          const str = localStorage.getItem(name);
-          if (!str) return null;
-          return JSON.parse(str, (key, value) => 
-            typeof value === 'string' && value.endsWith('n') && !isNaN(Number(value.slice(0, -1)))
-              ? BigInt(value.slice(0, -1))
-              : value
-          );
-        },
-        setItem: (name, value) => {
-          localStorage.setItem(name, JSON.stringify(value, (key, val) =>
-            typeof val === 'bigint' ? val.toString() + 'n' : val
-          ));
-        },
-        removeItem: (name) => localStorage.removeItem(name),
+      setDesconto: (centavos) => set({ descontoCentavos: safeCentavos(centavos) }),
+
+      clearCart: () => set({ items: [], descontoCentavos: 0 }),
+
+      subtotalCentavos: () => get().items.reduce(
+        (total, item) => total + (safeCentavos(item.precoCentavos) * (item.quantidade || 0)), 0
+      ),
+
+      totalCentavos: () => {
+        const sub = get().subtotalCentavos();
+        const desc = safeCentavos(get().descontoCentavos);
+        return Math.max(0, sub - desc);
       },
-    }
+    }),
+    { name: 'pdv-cart-storage' }
   )
 );

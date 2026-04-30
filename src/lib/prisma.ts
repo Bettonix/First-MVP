@@ -7,11 +7,11 @@ function createPrismaClient(): PrismaClient {
   // Prisma v7 engine type "client" exige um Driver Adapter.
   // Usamos @prisma/adapter-pg que gerencia o pool de conexões PostgreSQL
   // internamente, compatível com ambientes Serverless (Vercel/Supabase).
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_URL2;
 
   if (!connectionString) {
     throw new Error(
-      'DATABASE_URL não definida. Configure no .env ou nas variáveis de ambiente da Vercel.'
+      'DATABASE_URL2 não definida. Configure no .env ou nas variáveis de ambiente da Vercel para Connection Pooling.'
     );
   }
 

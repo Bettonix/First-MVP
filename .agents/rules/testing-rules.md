@@ -1,31 +1,51 @@
-Padrões de Testes e Automação (SaaS 2026)
+---
+trigger: always_on
+---
+
+🛡️ Blueprint de Engenharia e Qualidade (SaaS 2026 - High Fidelity)
+
 <workflow_assessment>
 
-Identifique o fluxo crítico a ser testado. Trata-se de um teste de componente isolado ou uma jornada de usuário completa?
+Identificação de Impacto & Domínio: Determine se o fluxo é crítico (Checkout, Login, ERP Hub). Avalie a árvore de componentes antes de codar: o que pode ser Server Component (RSC) para performance/SEO e o que exige "use client" para interatividade?
 
-Proponha os cenários de teste (caminho feliz e casos de borda) através de um "Approval Gate".
+Análise de Integridade Visual: Esta alteração impacta o Grid CSS global ou o design system? Exija testes de regressão visual para garantir que não há sobreposição de containers ou quebras em resoluções mobile.
+
+Isolamento Multi-tenant: Garanta que a arquitetura e os testes validem que os dados do Usuário A nunca vazem para o Usuário B. Pare no "Approval Gate" se houver mudança no gerenciamento de estado global.
 </workflow_assessment>
 
-<testing_standards>
+<architecture_standards>
 
-Testes E2E com Playwright: Foco em jornadas críticas (Autenticação, Checkout, Painel do SaaS) utilizando a sintaxe async/await padrão e o modelo de Page Object Model (POM).
+Stack de Elite: Next.js 15+ (App Router), React 19 (Recursos concorrentes e Server Actions). Utilize TanStack Query para cache assíncrono de servidor e Zustand (com persistência) para estados globais estritos.
 
-Mocking Determinístico: Para testes de integração de UI, isole o backend utilizando MSW (Mock Service Worker) e garanta respostas de API previsíveis (HAR fixtures).
+UI & Identidade Visual: Tailwind CSS para layouts fluidos. Utilize componentes headless (Radix UI / shadcn/ui) para acessibilidade. Aplique micro-interações com Framer Motion para elevar a percepção de valor.
 
-Independência de Estado: Cada teste deve configurar e limpar seu próprio estado. Testes não podem depender da ordem de execução de outros testes.
+Qualidade & Testes (Dual-Layer):
 
-Testes de Domínio: Use Vitest para lógica de negócios. O domínio não deve depender de infraestrutura real para ser testado (use mocks para repositórios).
-</testing_standards>
+Playwright E2E: Jornadas críticas com Page Object Model (POM) e regressão visual (toHaveScreenshot).
+
+Vitest & MSW: Testes unitários para lógica de negócios (finanças/estoque) e mocking determinístico de API para isolar o frontend.
+
+Validação & Segurança: Zod + React Hook Form para validação tipada. Nunca exponha chaves de API ou lógica de banco de dados diretamente no cliente.
+</architecture_standards>
 
 <negative_constraints>
 
-NÃO faça asserções baseadas em timeouts engessados (ex: setTimeout ou demoras fixas); confie nas esperas automáticas (auto-wait) do Playwright.
+NÃO crie Monólitos: Se um componente ultrapassar 200 linhas, decomponha-o em sub-componentes especializados.
 
-NÃO use seletores frágeis baseados em classes CSS de frameworks como Tailwind. Use locators baseados em acessibilidade (getByRole, getByText) ou data-testid.
+NÃO abuse do "use client": Mantenha a interatividade na "folha" da árvore de componentes sempre que possível. Nunca use no root layout.
 
-NÃO crie testes que dependam de dados estáticos persistentes pré-existentes; o teste deve gerar a massa de dados que ele precisa consumir.
+NÃO use seletores frágeis: Em testes, proiba o uso de classes Tailwind (ex: .bg-emerald-500). Utilize locators de acessibilidade (getByRole, getByLabel) ou data-testid.
+
+NÃO ignore o Layout Shift (CLS): O código deve evitar saltos de elementos durante o carregamento; use esqueletos (Skeletons) e fallbacks de Suspense apropriados.
+
+NÃO tolere sobreposições (Frankenstein): Elementos interativos não podem ter colisões de Bounding Box ou z-index que impeçam o clique do usuário.
 </negative_constraints>
 
 <feedback_loop>
-"Gap Finder": Após escrever o teste, identifique: "Este teste pode falhar por problemas de concorrência ou latência de rede em um ambiente de CI?" Ajuste o código e comente o feedback.
+
+Performance & UX Check: "A experiência degrada em conexões 3G? Existem estados de loading elegantes?" Avalie métricas de Web Vitals (LCP, CLS) em cada entrega.
+
+Flakiness & CI: Se um teste falha intermitentemente, ele deve ser refatorado. O conjunto completo de testes deve rodar em menos de 5 minutos.
+
+Resumo de Renderização: Ao concluir, valide: "O que eu movi para o servidor e por quê? Minha lógica de estado global é a mais enxuta possível?"
 </feedback_loop>

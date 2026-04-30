@@ -1,5 +1,7 @@
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL2")
+  directUrl = env("DATABASE_URL")
 }
 
 generator client {
@@ -44,13 +46,15 @@ model MovimentacaoFinanceira {
 }
 
 model Produto {
-  id             BigInt   @id @default(autoincrement())
-  tenantId       String   @map("tenant_id")
-  nome           String
-  precoCentavos  Int
-  estoqueAtual   Int      @default(0)
-  estoqueInicial Int      @default(0)
-  isFavorito     Boolean  @default(true)
+  id                  BigInt   @id @default(autoincrement())
+  tenantId            String   @map("tenant_id")
+  nome                String
+  precoCentavos       Int
+  precoCustoCentavos  Int      @default(0)
+  categoria           String   @default("Outros")
+  estoqueAtual        Int      @default(0)
+  estoqueInicial      Int      @default(0)
+  isFavorito          Boolean  @default(true)
   
   @@index([tenantId, isFavorito])
 }
