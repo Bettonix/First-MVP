@@ -42,10 +42,10 @@ export default function OnboardingPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-neutral-100 tracking-tight mb-1.5">
-            Bem-vindo ao seu PDV
+            Bem-vindo ao seu Balcão
           </h1>
           <p className="text-sm text-neutral-500 leading-relaxed mb-8">
-            Para começar a vender, dê um nome para o seu ponto de venda.
+            Para começar a vender, dê um nome para o seu balcão.
             Pode ser o nome da sua barraca, loja ou feira.
           </p>
 
@@ -97,7 +97,7 @@ export default function OnboardingPage() {
               ) : (
                 <>
                   <Rocket size={18} />
-                  Criar Meu PDV
+                  Criar Meu Balcão
                 </>
               )}
             </button>

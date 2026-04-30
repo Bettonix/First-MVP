@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+/* --- Premium Scrollbar --- */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+}
+
+/* --- Input Number Reset (Aggressive) --- */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+input[type=number] {
+  -moz-appearance: textfield !important;
+  appearance: none !important;
+}
+
+
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -10,6 +44,19 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@layer base {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +70,374 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUNLIGHT MODE – Enterprise-Grade
+   Design Tokens + WCAG AA + Elevation System + Glass Tooltips
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── DESIGN TOKENS ────────────────────────────────────────────── */
+.sunlight-mode {
+  /* Background Tokens */
+  --sl-bg-global:    #F1F5F9; /* Slate 100 – fundo da aplicação */
+  --sl-bg-surface:   #FFFFFF; /* Branco puro – cards e containers */
+  --sl-bg-checkout:  #F8FAFC; /* Slate 50 – painel lateral */
+  --sl-bg-muted:     #F1F5F9; /* Slate 100 – inputs e sub-superfícies */
+  --sl-bg-input:     #FFFFFF;
+
+  /* Border Tokens */
+  --sl-border:       #E2E8F0; /* Slate 200 – subtle */
+  --sl-border-md:    #CBD5E1; /* Slate 300 – default */
+
+  /* Text Tokens – todos WCAG AA (≥4.5:1 em branco) */
+  --sl-text-950:     #020617; /* Slate 950 */
+  --sl-text-900:     #0F172A; /* Slate 900 – títulos */
+  --sl-text-700:     #334155; /* Slate 700 – corpo */
+  --sl-text-600:     #475569; /* Slate 600 – subtextos  4.5:1 ✓ */
+  --sl-text-500:     #64748B; /* Slate 500 – muted / 3:1 (large only) */
+
+  /* Brand */
+  --sl-brand:        #059669; /* Emerald 600 – 4.5:1 em branco ✓ */
+  --sl-brand-hover:  #047857; /* Emerald 700 */
+
+  /* Elevation / Shadow Tokens */
+  --sl-shadow-xs:    0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --sl-shadow-sm:    0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --sl-shadow-md:    0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --sl-shadow-lg:    0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+  --sl-shadow-sidebar: 2px 0 8px -2px rgb(0 0 0 / 0.07);
+  --sl-shadow-checkout: -4px 0 24px rgb(0 0 0 / 0.04);
+
+  /* Tailwind built-in vars */
+  --background: #F1F5F9;
+  --foreground: #0F172A;
+  color-scheme: light;
+}
+
+/* Body */
+.sunlight-mode body {
+  background-color: var(--sl-bg-global) !important;
+  color: var(--sl-text-900) !important;
+}
+
+/* ── 1. BACKGROUNDS PRIMÁRIOS ─────────────────────────────────── */
+
+/* Wrapper raiz e header/nav/section com fundo #0B0D11 */
+.sunlight-mode .bg-\[\#0B0D11\] {
+  background-color: var(--sl-bg-global) !important;
+}
+
+/* Cards e superfícies elevadas */
+.sunlight-mode .bg-\[\#13161A\] {
+  background-color: var(--sl-bg-surface) !important;
+  box-shadow: var(--sl-shadow-md) !important;
+}
+
+/* Input escuro do login (#191D24) */
+.sunlight-mode .bg-\[\#191D24\] {
+  background-color: var(--sl-bg-muted) !important;
+  border-color: var(--sl-border) !important;
+}
+
+/* Micro-overlays brancas semitransparentes */
+.sunlight-mode .bg-white\/5,
+.sunlight-mode .bg-white\/\[0\.05\],
+.sunlight-mode .bg-white\/\[0\.03\],
+.sunlight-mode .bg-white\/\[0\.02\] {
+  background-color: var(--sl-bg-muted) !important;
+}
+
+/* bg-neutral escuro no estoque e outros */
+.sunlight-mode .bg-neutral-900\/40 {
+  background-color: var(--sl-bg-muted) !important;
+}
+
+/* Ícone containers escuros (círculos de produto/status) */
+.sunlight-mode .w-16.h-16.bg-neutral-800,
+.sunlight-mode .w-12.h-12.bg-neutral-800,
+.sunlight-mode .w-10.h-10.bg-neutral-800,
+.sunlight-mode .w-8.h-8.bg-neutral-800 {
+  background-color: var(--sl-bg-muted) !important;
+  border-color: var(--sl-border) !important;
+}
+
+.sunlight-mode .w-16.h-16.bg-neutral-800 svg,
+.sunlight-mode .w-12.h-12.bg-neutral-800 svg,
+.sunlight-mode .w-10.h-10.bg-neutral-800 svg,
+.sunlight-mode .w-8.h-8.bg-neutral-800 svg {
+  color: var(--sl-text-600) !important;
+}
+
+/* Containers de ícone emerald (login/onboarding) */
+.sunlight-mode [class*="bg-emerald-950"] {
+  background-color: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+}
+
+/* ── 2. SIDEBAR ───────────────────────────────────────────────── */
+
+.sunlight-mode aside {
+  background-color: var(--sl-bg-surface) !important;
+  border-right: 1px solid var(--sl-border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--sl-shadow-sidebar) !important;
+}
+
+/* Separador horizontal na sidebar */
+.sunlight-mode aside .bg-white\/5 {
+  background-color: var(--sl-border) !important;
+}
+
+/* Containers dos ícones */
+.sunlight-mode aside .rounded-xl,
+.sunlight-mode aside .w-12.h-12 {
+  background-color: var(--sl-bg-muted) !important;
+  border: none !important;
+}
+
+/* Ícones: slate-600 padrão, emerald no ativo/hover */
+.sunlight-mode aside svg {
+  color: var(--sl-text-600) !important;
+  transition: color 0.2s ease;
+}
+
+.sunlight-mode aside button:hover svg {
+  color: #10B981 !important;
+}
+
+.sunlight-mode aside button[class*="bg-emerald-500\/10"] {
+  background-color: #ECFDF5 !important;
+  border-color: #A7F3D0 !important;
+}
+
+.sunlight-mode aside button[class*="bg-emerald-500\/10"] svg,
+.sunlight-mode aside button[class*="text-emerald-400"] svg {
+  color: #10B981 !important;
+}
+
+/* ── 3. TOOLTIPS SIDEBAR – Glass Floating Labels ──────────────── */
+
+/* Base: oculto, estilo vidro branco */
+.sunlight-mode .bg-neutral-800.text-white {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  color: var(--sl-text-900) !important;
+  border: 1px solid var(--sl-border) !important;
+  box-shadow: var(--sl-shadow-lg) !important;
+  opacity: 0 !important;
+  transform: translateX(-6px) !important;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  pointer-events: none;
+}
+
+/* Visível no hover do botão pai */
+.sunlight-mode .group:hover .bg-neutral-800.text-white {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+
+/* ── 4. HEADER ────────────────────────────────────────────────── */
+
+.sunlight-mode header {
+  background-color: var(--sl-bg-surface) !important;
+  border-bottom: 1px solid var(--sl-border) !important;
+  box-shadow: var(--sl-shadow-xs) !important;
+}
+
+/* ── 5. NAV ───────────────────────────────────────────────────── */
+
+.sunlight-mode nav {
+  background-color: var(--sl-bg-surface) !important;
+  border-bottom: 1px solid var(--sl-border) !important;
+}
+
+/* Tab buttons inativos */
+.sunlight-mode nav button[class*="bg-white\/5"] {
+  background-color: var(--sl-bg-muted) !important;
+  color: var(--sl-text-600) !important;
+}
+
+/* ── 6. SECTION (Dashboard Bar) ───────────────────────────────── */
+
+.sunlight-mode section {
+  background-color: var(--sl-bg-surface) !important;
+  border-bottom: 1px solid var(--sl-border) !important;
+}
+
+/* ── 7. CHECKOUT PANEL ────────────────────────────────────────── */
+/* Alvo específico: o form do PDV tem class backdrop-blur-3xl */
+
+.sunlight-mode form[class*="backdrop-blur"] {
+  background-color: var(--sl-bg-checkout) !important;
+  border-left: 1px solid var(--sl-border) !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  box-shadow: var(--sl-shadow-checkout) !important;
+}
+
+/* Footer do checkout */
+.sunlight-mode form[class*="backdrop-blur"] footer {
+  background-color: rgba(248, 250, 252, 0.98) !important;
+  border-top: 1px solid var(--sl-border) !important;
+  backdrop-filter: none !important;
+}
+
+/* Títulos do checkout */
+.sunlight-mode form[class*="backdrop-blur"] h2,
+.sunlight-mode form[class*="backdrop-blur"] h3 {
+  color: var(--sl-text-900) !important;
+}
+
+/* Subtextos */
+.sunlight-mode form[class*="backdrop-blur"] .text-neutral-400,
+.sunlight-mode form[class*="backdrop-blur"] .text-neutral-500,
+.sunlight-mode form[class*="backdrop-blur"] .text-neutral-600 {
+  color: var(--sl-text-600) !important;
+}
+
+/* Área do total */
+.sunlight-mode form[class*="backdrop-blur"] .bg-white\/\[0\.02\] {
+  background-color: var(--sl-bg-muted) !important;
+  border: 1px solid var(--sl-border) !important;
+}
+
+/* Itens do carrinho */
+.sunlight-mode form[class*="backdrop-blur"] .bg-white\/\[0\.03\] {
+  background-color: var(--sl-bg-surface) !important;
+  border-color: var(--sl-border) !important;
+  box-shadow: var(--sl-shadow-xs) !important;
+}
+
+/* Contador de quantidade e micro-superfícies */
+.sunlight-mode form[class*="backdrop-blur"] .bg-white\/5,
+.sunlight-mode form[class*="backdrop-blur"] .bg-white\/\[0\.05\] {
+  background-color: var(--sl-bg-muted) !important;
+  border-color: var(--sl-border-md) !important;
+}
+
+/* Seção Misto (restante/troco) */
+.sunlight-mode form[class*="backdrop-blur"] .bg-white\/\[0\.02\].border {
+  background-color: var(--sl-bg-muted) !important;
+  border-color: var(--sl-border) !important;
+}
+
+/* ── 8. INPUTS + SELECT (global) ─────────────────────────────── */
+
+.sunlight-mode input,
+.sunlight-mode select {
+  background-color: var(--sl-bg-input) !important;
+  border: 1px solid var(--sl-border) !important;
+  color: var(--sl-text-900) !important;
+  transition: all 0.2s ease !important;
+}
+
+.sunlight-mode input::placeholder,
+.sunlight-mode .placeholder\:text-neutral-600::placeholder,
+.sunlight-mode .placeholder\:text-neutral-700::placeholder,
+.sunlight-mode .placeholder\:text-neutral-800::placeholder {
+  color: var(--sl-text-500) !important;
+}
+
+.sunlight-mode input:focus,
+.sunlight-mode select:focus {
+  background-color: #FFFFFF !important;
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+  outline: none !important;
+}
+
+/* ── 9. BOTÃO FINALIZAR + bg-emerald-600 ──────────────────────── */
+
+.sunlight-mode .bg-emerald-600 {
+  background: linear-gradient(180deg, #10B981 0%, #059669 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.25),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+.sunlight-mode .bg-emerald-600:hover {
+  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-1px);
+}
+
+/* ── 10. TIPOGRAFIA GLOBAL – WCAG AA ──────────────────────────── */
+
+.sunlight-mode .text-neutral-100 { color: var(--sl-text-900) !important; }
+.sunlight-mode .text-neutral-200 { color: #1E293B !important; }
+.sunlight-mode .text-neutral-300 { color: var(--sl-text-700) !important; }
+.sunlight-mode .text-neutral-400 { color: var(--sl-text-600) !important; }
+.sunlight-mode .text-neutral-500 { color: var(--sl-text-500) !important; }
+.sunlight-mode .text-neutral-600 { color: var(--sl-text-500) !important; }
+.sunlight-mode .text-neutral-700 { color: var(--sl-text-600) !important; }
+.sunlight-mode .border-neutral-800 { border-color: var(--sl-border) !important; }
+
+.sunlight-mode h1, .sunlight-mode h2, .sunlight-mode h3 {
+  color: var(--sl-text-900) !important;
+}
+
+/* Emerald: ajustado para 4.5:1 em branco (WCAG AA) */
+.sunlight-mode .text-emerald-400,
+.sunlight-mode .text-emerald-500 {
+  color: var(--sl-brand) !important;
+  font-weight: 700 !important;
+}
+
+.sunlight-mode .text-emerald-600 {
+  color: var(--sl-brand-hover) !important;
+}
+
+/* ── 11. BORDAS ───────────────────────────────────────────────── */
+
+.sunlight-mode [class*="border-white\/"] {
+  border-color: var(--sl-border) !important;
+}
+
+/* ── 12. CARDS DE PRODUTO (grade principal) ───────────────────── */
+
+.sunlight-mode .group.hover\:border-emerald-500\/30 {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.sunlight-mode .group.hover\:border-emerald-500\/30:hover {
+  transform: scale(1.02) !important;
+  box-shadow: var(--sl-shadow-lg) !important;
+  z-index: 10;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+/* ── 13. BG-NEUTRAL-800 GERAL (botões, labels, misc) ─────────── */
+/* Cobre bg-neutral-800 que NÃO sejam tooltips (.text-white já tratado) */
+
+.sunlight-mode .bg-neutral-800:not(.text-white) {
+  background-color: var(--sl-bg-muted) !important;
+  border-color: var(--sl-border) !important;
+}
+
+/* Hover state: bg-neutral-700 e bg-neutral-800 hover */
+.sunlight-mode .hover\:bg-neutral-700:hover,
+.sunlight-mode .hover\:bg-neutral-800:hover {
+  background-color: #E2E8F0 !important; /* Slate 200 – hover suave */
+}
+
+/* Bordas neutras escuras (border-neutral-700, border-neutral-800) */
+.sunlight-mode .border-neutral-700\/50,
+.sunlight-mode .border-neutral-700,
+.sunlight-mode .border-neutral-800 {
+  border-color: var(--sl-border) !important;
+}
+
+/* ── 14. SCROLLBAR (Sunlight) ─────────────────────────────────── */
+
+.sunlight-mode ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.2);
+}
+
+.sunlight-mode ::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
 }

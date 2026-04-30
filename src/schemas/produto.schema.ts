@@ -15,7 +15,7 @@ export const produtoSchema = z.object({
   precoCusto: z.coerce.number().min(0, "Preço de custo inválido").default(0),
   categoria: z.string().min(1, "Selecione uma categoria").default("Outros"),
   isFavorito: z.boolean().default(true),
-  estoqueAtual: z.coerce.number().int().min(0).default(0),
+  estoqueAtual: z.coerce.number().int().default(0),
 });
 
 export type ProdutoFormData = z.infer<typeof produtoSchema>;

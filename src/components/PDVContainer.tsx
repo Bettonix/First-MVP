@@ -4,22 +4,32 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { updateAccessibilitySettings } from "@/app/actions/accessibility";
 import {
   ShoppingCart, Banknote, QrCode, CreditCard,
   Loader2, Lock, Minus, ChevronUp,
   DollarSign, Hash, TrendingUp, Star, LayoutGrid, Clock,
   Package, AlertTriangle, Users, Save, X, CheckCircle2,
   ClipboardList, ShoppingBag, Printer, MessageCircle, Search,
-  Pencil, Trash2, Plus,
+  Pencil, Trash2, Plus, Sun, Moon,
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
 import { useTabStore, Comanda } from "@/store/useTabStore";
 import { getProdutosPDV, depleteStock, deleteProduto } from "@/app/actions/produtos";
+import { registrarVenda } from "@/app/actions/vendas";
 import { QuickAddSheet, DeleteConfirmModal } from "./QuickAddSheet";
 import { CashActions } from "./CashActions";
+import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { useState, useEffect, useRef, useOptimistic, useTransition } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+
+// ─── Utility Functions ────────────────────────────────────────
+const sanitize = (val: any) => {
+  if (!val) return 0;
+  const cleaned = String(val).replace(/[^0-9.-]+/g, "");
+  return parseFloat(cleaned) || 0;
+};
 
 // ─── Toast Component ──────────────────────────────────────────
 function Toast({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) {
@@ -66,18 +76,10 @@ function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: { isOpen
 // ─── Schemas & Helpers ─────────────────────────────────────────
 
 const checkoutSchema = z.object({
-  pagamento: z.enum(['PIX', 'DINHEIRO', 'MISTO']),
-  valorRecebido: z.number().min(0, "Valor inválido").optional(),
-  valorPix: z.number().min(0).optional(),
-  valorDinheiro: z.number().min(0).optional(),
-}).superRefine((data, ctx) => {
-  if (data.pagamento === 'DINHEIRO' && !data.valorRecebido) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Informe o valor recebido",
-      path: ["valorRecebido"],
-    });
-  }
+  pagamento: z.enum(['PIX', 'DINHEIRO', 'CARTAO', 'MISTO']),
+  valorRecebido: z.coerce.number().min(0).default(0),
+  valorPix: z.coerce.number().min(0).default(0),
+  valorDinheiro: z.coerce.number().min(0).default(0),
 });
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
@@ -173,7 +175,7 @@ function OpenTime({ createdAt }: { createdAt: number }) {
 // ─── Main Component ───────────────────────────────────────────
 
 export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems, recentSales, initialProdutos }: PDVContainerProps) {
-  const { items, addItem, removeItem, togglePrepared, clearCart, totalCentavos, subtotalCentavos, descontoCentavos, setDesconto, setItems } = useCartStore();
+  const { items, addItem, removeItem, incrementItem, decrementItem, togglePrepared, clearCart, totalCentavos, subtotalCentavos, descontoCentavos, setDesconto, setItems } = useCartStore();
   const { comandas, saveComanda, updateComandaItems, activeComandaId, setActiveComanda, closeComanda } = useTabStore();
   
   const { data: produtos = initialProdutos, isLoading } = useQuery({
@@ -209,6 +211,30 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const [lastSaleItems, setLastSaleItems] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState(new Date());
+  const [selectedDashboardDate, setSelectedDashboardDate] = useState(new Date());
+  const [isMounted, setIsMounted] = useState(false);
+  const [isSunlightActive, setIsSunlightActive] = useState(false);
+  const [isPendingTheme, startThemeTransition] = useTransition();
+
+  const toggleSunlight = () => {
+    const isSunlight = document.documentElement.classList.contains('sunlight-mode');
+    const nextTheme = isSunlight ? 'dark' : 'sunlight';
+
+    // Optimistic: aplica a classe imediatamente para feedback visual instantâneo
+    document.documentElement.classList.toggle('sunlight-mode', !isSunlight);
+    document.body.classList.toggle('sunlight-mode', !isSunlight);
+    setIsSunlightActive(!isSunlight);
+
+    startThemeTransition(async () => {
+      await updateAccessibilitySettings(nextTheme);
+    });
+  };
+
+  useEffect(() => {
+    setIsMounted(true);
+    setIsSunlightActive(document.documentElement.classList.contains('sunlight-mode'));
+  }, []);
 
   // CRUD & Feedback State
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -256,23 +282,28 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
   const { register, handleSubmit, watch, formState: { errors }, reset: resetForm, setValue } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema) as any,
-    defaultValues: { pagamento: 'DINHEIRO' }
+    defaultValues: { 
+      pagamento: 'DINHEIRO',
+      valorRecebido: 0,
+      valorPix: 0,
+      valorDinheiro: 0
+    }
   });
 
   const pagamentoType = watch("pagamento");
   const valorRecebidoRaw = watch("valorRecebido");
   
-  // Strict sanitization helper
-  const sanitize = (v: any) => Number(String(v || '').replace(/[^0-9.]/g, '')) || 0;
+  // Financial normalization helper (Cents Rule)
+  const toCents = (val: any) => Math.round(sanitize(val) * 100);
 
-  const valorRecebido = Math.round(sanitize(valorRecebidoRaw) * 100);
+  const valorRecebido = toCents(valorRecebidoRaw);
   const troco = pagamentoType === 'DINHEIRO' ? Math.max(0, valorRecebido - total) : 0;
   
   const valorPixRaw = watch("valorPix");
   const valorDinheiroRaw = watch("valorDinheiro");
   
-  const mistoPixCentavos = Math.round(sanitize(valorPixRaw) * 100);
-  const mistoDinheiroCentavos = Math.round(sanitize(valorDinheiroRaw) * 100);
+  const mistoPixCentavos = toCents(valorPixRaw);
+  const mistoDinheiroCentavos = toCents(valorDinheiroRaw);
   const mistoTotalCentavos = mistoPixCentavos + mistoDinheiroCentavos;
   
   const faltaMisto = Math.max(0, total - mistoTotalCentavos);
@@ -286,27 +317,58 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const mutation = useMutation({
     mutationFn: async (data: CheckoutForm) => {
       const cartSerialized = items.map(item => ({
-        produtoId: safeIdToNumber(item.produtoId),
+        produtoId: item.produtoId,
         nome: item.nome,
         quantidade: item.quantidade,
         precoCentavos: item.precoCentavos,
       }));
-      const response = await fetch('/api/vendas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart: cartSerialized, pagamento: { tipo: data.pagamento, pixId: data.pagamento === 'PIX' ? 'req_pix_123' : undefined } }),
-      });
-      if (!response.ok) throw new Error((await response.json()).error || "Erro ao finalizar venda");
-      return response.json();
+
+      // Base Payload
+      const payload: any = {
+        cart: cartSerialized,
+        pagamento: {
+          tipo: data.pagamento,
+          pixId: undefined,
+          pixCentavos: 0,
+          dinheiroCentavos: 0
+        }
+      };
+
+      // Case-specific payload refinement
+      if (data.pagamento === 'DINHEIRO') {
+        payload.pagamento.dinheiroCentavos = total; // Net revenue
+      } else if (data.pagamento === 'PIX') {
+        payload.pagamento.pixCentavos = total;
+        payload.pagamento.pixId = `PIX-${Date.now()}`; // Unique ID placeholder
+      } else if (data.pagamento === 'CARTAO') {
+        payload.pagamento.cartaoCentavos = total;
+        payload.pagamento.pixId = `CARD-${Date.now()}`;
+      } else if (data.pagamento === 'MISTO') {
+        payload.pagamento.pixCentavos = Math.round(sanitize(data.valorPix) * 100);
+        payload.pagamento.dinheiroCentavos = Math.round(sanitize(data.valorDinheiro) * 100);
+        payload.pagamento.pixId = `MISTO-${Date.now()}`;
+      }
+
+      console.log("🚀 Auditoria de Payload (Supabase):", payload);
+      
+      const res = await registrarVenda(payload);
+
+      if (!res.success) {
+        console.error("❌ Erro na Server Action:", res.error);
+        throw new Error(res.error);
+      }
+      
+      return res;
     },
-    onSuccess: async (data) => {
+    onSuccess: async () => {
       setLastSaleTotal(total);
       setLastSaleItems([...items]);
-      try {
-        await depleteStock(items.map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade })));
-        queryClient.invalidateQueries({ queryKey: ['produtos-pdv'] });
-      } catch (e) { console.error('Stock depletion failed:', e); }
+      
+      // Invalida a query para obter o estoque atualizado do servidor
+      queryClient.invalidateQueries({ queryKey: ['produtos-pdv'] });
+
       if (activeComandaId) closeComanda(activeComandaId);
+      
       clearCart();
       setCartOpen(false);
       resetForm();
@@ -314,22 +376,41 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       showToast("Venda finalizada com sucesso!");
     },
     onError: (err: Error) => {
-      showToast("Erro na sincronização: " + err.message, 'error');
-      // Fallback local...
+      showToast(err.message, 'error');
     },
   });
 
   const onSubmit = (data: CheckoutForm) => {
-    if (items.length === 0) return;
-    if (pagamentoType === 'DINHEIRO' && valorRecebido < total) return showToast("Valor insuficiente.", 'error');
-    if (pagamentoType === 'MISTO' && !isMistoValid) return showToast("Valores mistos insuficientes.", 'error');
+    console.log("📝 Form Data Raw:", data);
+    
+    if (items.length === 0) return showToast("Carrinho vazio.", 'error');
+
+    if (pagamentoType === 'DINHEIRO') {
+      const recebido = Math.round(sanitize(data.valorRecebido) * 100);
+      if (recebido < total) return showToast(`Valor insuficiente. Falta ${fmt(total - recebido)}`, 'error');
+    }
+
+    if (pagamentoType === 'MISTO') {
+      const pix = Math.round(sanitize(data.valorPix) * 100);
+      const money = Math.round(sanitize(data.valorDinheiro) * 100);
+      const sum = pix + money;
+      
+      if (sum < total) {
+        return showToast(`Pagamento insuficiente. Falta ${fmt(total - sum)}`, 'error');
+      }
+      if (sum > total) {
+        return showToast(`O pagamento misto deve ser exato. Excedente: ${fmt(sum - total)}`, 'error');
+      }
+    }
+
     mutation.mutate(data);
   };
 
   const paymentMethods = [
     { value: 'DINHEIRO' as const, label: 'Dinheiro', icon: Banknote },
     { value: 'PIX' as const, label: 'Pix', icon: QrCode },
-    { value: 'MISTO' as const, label: 'Misto', icon: CreditCard },
+    { value: 'CARTAO' as const, label: 'Cartão', icon: CreditCard },
+    { value: 'MISTO' as const, label: 'Misto', icon: LayoutGrid },
   ];
 
   const handleSaveToComanda = () => {
@@ -387,36 +468,48 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
     <div className="h-screen w-full bg-[#0B0D11] overflow-hidden text-neutral-100 font-sans lg:grid lg:grid-cols-[72px_1fr_400px]">
       
       {/* ─── SIDEBAR (COLUNA 1) ─── */}
-      <aside className="hidden lg:flex flex-col items-center py-6 border-r border-white/5 bg-[#0B0D11] z-20">
+      <aside className="hidden lg:flex flex-col items-center py-6 border-r border-white/5 bg-[#0B0D11] z-[100]">
         <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center mb-8 shadow-lg shadow-emerald-500/20">
           <LayoutGrid size={20} className="text-white" />
         </div>
         <nav className="flex flex-col gap-4 flex-1">
           <button onClick={() => setActiveView("VENDA")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'VENDA' || activeView === 'COMANDAS' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
             <ShoppingCart size={20} />
-            <span className="absolute left-14 bg-neutral-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">PDV</span>
+            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Balcão</span>
           </button>
           <button onClick={() => setActiveView("HISTORICO")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'HISTORICO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
             <Clock size={20} />
-            <span className="absolute left-14 bg-neutral-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">Histórico</span>
+            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Histórico</span>
           </button>
           <button onClick={() => setActiveView("ESTOQUE")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'ESTOQUE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
             <Package size={20} />
-            <span className="absolute left-14 bg-neutral-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">Estoque</span>
+            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Estoque</span>
           </button>
           <button onClick={() => setActiveView("RELATORIOS")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'RELATORIOS' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
             <TrendingUp size={20} />
-            <span className="absolute left-14 bg-neutral-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">Dashboard</span>
+            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Dashboard</span>
+          </button>
+
+          <div className="w-8 h-[1px] bg-white/5 mx-auto my-2" />
+
+          <button 
+            type="button"
+            onClick={toggleSunlight} 
+            disabled={isPendingTheme}
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-neutral-500 hover:text-amber-400 hover:bg-amber-400/10 transition-all group relative"
+          >
+            {isPendingTheme ? <Loader2 size={18} className="animate-spin" /> : isSunlightActive ? <Moon size={20} /> : <Sun size={20} />}
+            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">{isSunlightActive ? 'Modo Escuro' : 'Modo Sol'}</span>
           </button>
         </nav>
         <button onClick={() => { clearCart(); window.location.href='/login'; }} className="w-12 h-12 rounded-xl text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all group relative mt-auto">
           <Lock size={20} />
-          <span className="absolute left-14 bg-neutral-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">Sair</span>
+          <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Sair</span>
         </button>
       </aside>
 
       {/* ─── MAIN CONTENT (COLUNA 2) ─── */}
-      <div className="h-full flex flex-col overflow-hidden relative z-10">
+      <div className="h-full flex flex-col overflow-hidden relative z-30">
         
         {/* Header (Fixo no Topo) */}
         <header className="px-6 py-4 border-b border-white/5 bg-[#0B0D11] flex flex-shrink-0 items-center justify-between">
@@ -504,12 +597,36 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                         const matchesTab = activeTab === "todos" || (activeTab === "favoritos" && p.isFavorito);
                         return matchesSearch && matchesTab;
                       })
-                      .map((p: any) => (
-                      <button key={p.id} onClick={() => { addItem({ produtoId: String(p.id), nome: p.nome, precoCentavos: safeCentavos(p.precoCentavos) }); setCartOpen(true); }} className="bg-[#13161A] border border-white/5 hover:border-emerald-500/30 p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-all active:scale-[0.98] group relative overflow-hidden">
-                        <div className="w-16 h-16 rounded-full bg-neutral-800 border-2 border-white/5 flex items-center justify-center group-hover:scale-105 transition-transform"><Package size={24} className="text-neutral-500"/></div>
-                        <div><p className="font-black text-sm leading-tight group-hover:text-emerald-400 transition-colors line-clamp-2">{p.nome}</p><p className="text-emerald-500/80 font-bold mt-1 text-sm tabular-nums">{fmt(p.precoCentavos)}</p></div>
-                      </button>
-                    ))}
+                      .map((p: any) => {
+                        const isEsgotado = p.estoqueAtual <= 0;
+                        return (
+                          <button 
+                            key={p.id} 
+                            disabled={isEsgotado}
+                            onClick={() => { 
+                              addItem({ produtoId: String(p.id), nome: p.nome, precoCentavos: safeCentavos(p.precoCentavos) }); 
+                              setCartOpen(true); 
+                            }} 
+                            className={`bg-[#13161A] border border-white/5 p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-all relative overflow-hidden group shadow-xl ${isEsgotado ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-emerald-500/30 active:scale-[0.98]'}`}
+                          >
+                            <div className={`w-16 h-16 rounded-full bg-neutral-800 border-2 border-white/5 flex items-center justify-center transition-transform ${!isEsgotado && 'group-hover:scale-105'}`}>
+                              <Package size={24} className={isEsgotado ? 'text-neutral-700' : 'text-neutral-500'}/>
+                            </div>
+                            <div>
+                              <p className={`font-black text-sm leading-tight transition-colors line-clamp-2 ${!isEsgotado && 'group-hover:text-emerald-400'}`}>{p.nome}</p>
+                              <p className={`font-bold mt-1 text-sm tabular-nums ${isEsgotado ? 'text-neutral-500' : 'text-emerald-500/80'}`}>{fmt(p.precoCentavos)}</p>
+                            </div>
+
+                            {isEsgotado && (
+                              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rotate-[-15deg] pointer-events-none">
+                                <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-rose-500/20">
+                                  Esgotado
+                                </span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
               </motion.div>
@@ -543,11 +660,65 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
             {activeView === "HISTORICO" && (
               <motion.div key="historico" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex flex-col gap-6">
-                <h2 className="text-2xl font-black">Histórico de Vendas</h2>
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center text-center opacity-50">
-                   <Clock size={48} className="mb-6 text-neutral-500" />
-                   <p className="font-bold text-lg mb-2">Histórico do Turno Atual</p>
-                   <p className="text-sm text-neutral-400">Os dados detalhados são carregados dinamicamente.</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <h2 className="text-2xl font-black">Histórico de Vendas</h2>
+                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Exibindo registros por data</p>
+                  </div>
+                  <PremiumDatePicker 
+                    selectedDate={selectedHistoryDate} 
+                    onDateChange={setSelectedHistoryDate} 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {recentSales.filter(s => {
+                    const saleDate = new Date(s.criadoEm);
+                    return saleDate.getDate() === selectedHistoryDate.getDate() &&
+                           saleDate.getMonth() === selectedHistoryDate.getMonth() &&
+                           saleDate.getFullYear() === selectedHistoryDate.getFullYear();
+                  }).length === 0 ? (
+                    <div className="bg-white/5 border border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center text-center opacity-50">
+                       <Clock size={48} className="mb-6 text-neutral-500" />
+                       <p className="font-bold text-lg mb-2">Nenhuma venda nesta data</p>
+                       <p className="text-sm text-neutral-400">Tente selecionar outro dia no calendário acima.</p>
+                    </div>
+                  ) : (
+                    recentSales
+                      .filter(s => {
+                        const saleDate = new Date(s.criadoEm);
+                        return saleDate.getDate() === selectedHistoryDate.getDate() &&
+                               saleDate.getMonth() === selectedHistoryDate.getMonth() &&
+                               saleDate.getFullYear() === selectedHistoryDate.getFullYear();
+                      })
+                      .map((sale) => (
+                      <motion.div 
+                        key={sale.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="bg-[#13161A] border border-white/5 p-5 rounded-2xl flex items-center justify-between group hover:border-emerald-500/30 transition-all"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-neutral-400 group-hover:bg-emerald-500/10 group-hover:text-emerald-400 transition-colors">
+                            {sale.metodoPagto === 'PIX' ? <QrCode size={20} /> : sale.metodoPagto === 'DINHEIRO' ? <Banknote size={20} /> : <CreditCard size={20} />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-neutral-200">Venda #{sale.id.slice(-4)}</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 text-neutral-500 uppercase tracking-tighter">{sale.metodoPagto}</span>
+                            </div>
+                            <p className="text-xs text-neutral-500 font-medium mt-1">
+                              {new Date(sale.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-black text-emerald-400 tabular-nums tracking-tighter">{fmt(sale.totalCentavos)}</p>
+                          <p className="text-[10px] font-bold text-emerald-500/40 uppercase tracking-widest mt-1">Finalizada</p>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
                 </div>
               </motion.div>
             )}
@@ -595,7 +766,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
             {activeView === "RELATORIOS" && (
               <motion.div key="relatorios" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex flex-col gap-6">
-                <h2 className="text-2xl font-black">Dashboard de Vendas</h2>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-black">Dashboard de Vendas</h2>
+                  <PremiumDatePicker 
+                    selectedDate={selectedDashboardDate} 
+                    onDateChange={setSelectedDashboardDate} 
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                    <div className="bg-[#13161A] border border-emerald-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"/>
@@ -619,21 +796,42 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         </div>
       </div>
 
-      {/* ─── SIDE PANEL (CARRINHO / ERP SIDE) (COLUNA DIREITA) ─── */}
-      <div className={`fixed inset-0 z-40 lg:hidden bg-black/60 backdrop-blur-sm transition-opacity ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
+      {/* ─── SIDE PANEL (CARRINHO / CHECKOUT PRO) (COLUNA DIREITA) ─── */}
+      <div className={`fixed inset-0 z-40 lg:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
       
-      <aside className={`fixed inset-y-0 right-0 z-50 w-full max-w-[400px] lg:static lg:w-full lg:max-w-none bg-[#13161A]/80 backdrop-blur-xl lg:border-l lg:border-white/5 flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] lg:translate-x-0 ${cartOpen ? 'translate-x-0 shadow-[-20px_0_40px_rgba(0,0,0,0.4)] lg:shadow-none' : 'translate-x-full'}`}>
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-transparent">
+      <form 
+        noValidate
+        onSubmit={handleSubmit(onSubmit)}
+        className={`
+          fixed inset-y-0 right-0 z-50 w-full max-w-[420px] 
+          lg:static lg:w-full lg:max-w-none 
+          bg-[#0B0D11]/40 backdrop-blur-3xl 
+          lg:border-l lg:border-white/10 flex flex-col 
+          transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
+          ${cartOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+          relative shadow-[0_0_100px_rgba(0,0,0,0.8)]
+        `}
+      >
+        {/* Glow Decorativo de Fundo */}
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="p-8 border-b border-white/5 flex items-center justify-between relative z-10">
           <div className="flex flex-col">
-            <h2 className="text-sm font-black uppercase tracking-widest text-neutral-400 flex items-center gap-2"><ShoppingCart size={16}/> {activeComandaId ? 'Comanda Ativa' : 'Pedido Direto'}</h2>
-            {activeComandaId && <p className="text-xs text-emerald-400 font-bold mt-1">Editando comanda de {comandas.find(c => c.id === activeComandaId)?.clienteNome}</p>}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h2 className="text-xs font-black uppercase tracking-[0.3em] text-neutral-500">Checkout Pro</h2>
+            </div>
+            <h3 className="text-xl font-black text-white tracking-tighter">
+              {activeComandaId && isMounted ? 'Comanda Ativa' : 'Pedido Direto'}
+            </h3>
+            {activeComandaId && <p className="text-[10px] text-emerald-400/80 font-bold mt-1 uppercase tracking-widest bg-emerald-400/5 px-2 py-0.5 rounded-md inline-block">Mesa: {comandas.find(c => c.id === activeComandaId)?.clienteNome}</p>}
           </div>
-          <button onClick={() => setCartOpen(false)} className="lg:hidden p-2 hover:bg-white/5 rounded-full"><ChevronUp className="rotate-90"/></button>
+          <button type="button" onClick={() => setCartOpen(false)} className="lg:hidden w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all"><X size={20}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-8 py-8 relative z-10 scrollbar-hide">
           <AnimatePresence initial={false}>
-            {items.length === 0 ? (
+            {!isMounted || items.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-center px-6 gap-4 opacity-40">
                 <ShoppingBag size={48} className="text-neutral-500" />
                 <div className="space-y-1">
@@ -644,15 +842,34 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
             ) : (
               <ul className="space-y-4">
                 {items.map(item => (
-                  <motion.li layout key={item.produtoId} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.9 }} className={`group relative bg-white/[0.03] p-4 rounded-2xl border border-white/5 transition-opacity ${item.prepared ? 'opacity-40' : 'opacity-100'}`}>
+                  <motion.li layout key={item.produtoId} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.9 }} className={`group relative bg-white/[0.03] p-5 rounded-[24px] border border-white/5 hover:border-white/10 transition-all ${item.prepared ? 'opacity-40' : 'opacity-100'}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <p className="font-bold text-sm leading-tight text-neutral-200">{item.nome} <span className="text-neutral-500">x{item.quantidade}</span></p>
-                        <p className="text-xs text-emerald-500/70 font-bold mt-1 tabular-nums">{fmt(item.precoCentavos * item.quantidade)}</p>
+                        <p className="font-bold text-sm leading-tight text-neutral-200">{item.nome}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                           <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-0.5">
+                              <button 
+                                type="button"
+                                onClick={() => decrementItem(item.produtoId)} 
+                                className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
+                              >
+                                <Minus size={12}/>
+                              </button>
+                              <span className="w-8 text-center text-xs font-black tabular-nums text-neutral-200">{item.quantidade}</span>
+                              <button 
+                                type="button"
+                                onClick={() => incrementItem(item.produtoId)} 
+                                className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
+                              >
+                                <Plus size={12}/>
+                              </button>
+                           </div>
+                           <p className="text-xs text-emerald-500/70 font-bold tabular-nums">{fmt(item.precoCentavos * item.quantidade)}</p>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end gap-3">
-                        <button onClick={() => togglePrepared(item.produtoId)} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${item.prepared ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/20 text-transparent hover:border-emerald-500/50'}`}><CheckCircle2 size={14}/></button>
-                        <button onClick={() => removeItem(item.produtoId)} className="text-rose-500/40 hover:text-rose-500 transition-colors p-1"><Minus size={16}/></button>
+                        <button type="button" onClick={() => togglePrepared(item.produtoId)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${item.prepared ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-white/10 text-transparent hover:border-emerald-500/50'}`}><CheckCircle2 size={16}/></button>
+                        <button type="button" onClick={() => removeItem(item.produtoId)} className="text-rose-500/20 hover:text-rose-500 transition-colors p-2"><Trash2 size={18}/></button>
                       </div>
                     </div>
                   </motion.li>
@@ -662,112 +879,122 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
           </AnimatePresence>
         </div>
 
-        <footer className="p-6 bg-transparent border-t border-white/5 space-y-4">
+        <footer className="p-6 bg-[#0B0D11]/60 backdrop-blur-3xl border-t border-white/5 space-y-4 relative z-10 flex-shrink-0">
           <div className="flex flex-col gap-1">
             <AnimatePresence>
               {descontoCentavos > 0 && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex items-center justify-between text-rose-400 overflow-hidden mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest">Desconto Aplicado</span>
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex items-center justify-between text-rose-400 overflow-hidden mb-1">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Desconto</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold tabular-nums">-{fmt(descontoCentavos)}</span>
-                    <button onClick={() => setDesconto(0)} className="hover:text-rose-300 p-1"><X size={12}/></button>
+                    <span className="text-xs font-bold tabular-nums">-{fmt(descontoCentavos)}</span>
+                    <button type="button" onClick={() => setDesconto(0)} className="hover:text-rose-300 p-1"><X size={10}/></button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-            <div className="flex items-end justify-between">
-              <div className="flex flex-col items-start gap-1">
-                <span className="text-xs font-black uppercase tracking-[0.2em] text-neutral-500">Total à Pagar</span>
+            
+            <div className="flex items-center justify-between bg-white/[0.02] p-4 rounded-3xl border border-white/5 shadow-inner">
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-neutral-500">Total</span>
                 {descontoCentavos === 0 && items.length > 0 && (
-                  <button onClick={() => setDiscountModalOpen(true)} className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">+ Aplicar Desconto</button>
+                  <button type="button" onClick={() => setDiscountModalOpen(true)} className="text-[9px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-all">+ Cupom</button>
                 )}
               </div>
               <div className="flex flex-col items-end">
-                {descontoCentavos > 0 && <span className="text-xs text-neutral-500 line-through tabular-nums mb-1">{fmt(subtotal)}</span>}
-                <span className="text-4xl font-black text-emerald-400 tabular-nums tracking-tighter leading-none">{fmt(total)}</span>
+                {descontoCentavos > 0 && <span className="text-[10px] text-neutral-600 line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
+                <span className="text-4xl font-black text-emerald-400 tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                  {isMounted ? fmt(total) : 'R$ 0,00'}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {paymentMethods.map(m => (
-              <button key={m.value} onClick={() => resetForm({ pagamento: m.value })} className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all ${pagamentoType === m.value ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 scale-100 shadow-[0_0_20px_rgba(16,185,129,0.15)]' : 'border-white/5 bg-white/5 text-neutral-600 hover:border-white/10 scale-[0.98]'}`}>
-                <m.icon size={20}/><span className="text-[10px] font-bold mt-1.5 uppercase tracking-wider">{m.label}</span>
+              <button 
+                type="button" 
+                key={m.value} 
+                onClick={() => resetForm({ pagamento: m.value })} 
+                className={`
+                  flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-300
+                  ${pagamentoType === m.value 
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_5px_20px_rgba(16,185,129,0.1)] scale-[1.02]' 
+                    : 'border-white/5 bg-white/[0.03] text-neutral-500 hover:border-white/10 hover:bg-white/[0.05] grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}
+                `}
+              >
+                <m.icon size={18}/>
+                <span className="text-[8px] font-black mt-1.5 uppercase tracking-[0.1em]">{m.label}</span>
               </button>
             ))}
           </div>
 
           <AnimatePresence>
             {pagamentoType === 'DINHEIRO' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-2 overflow-hidden pt-2">
-                <div className="flex gap-4">
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Valor Recebido</label>
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-2 overflow-hidden">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500 ml-1">Recebido</label>
                     <input
                       type="number"
                       step="0.01"
                       inputMode="decimal"
                       placeholder="0,00"
                       {...register("valorRecebido")}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-lg font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"
+                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-xl font-black focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-800"
                     />
                   </div>
-                  <div className="w-28 flex flex-col gap-1.5 items-end justify-end pb-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Troco</span>
-                    <span className={`text-xl font-black tabular-nums tracking-tighter ${troco > 0 ? 'text-emerald-400' : 'text-neutral-600'}`}>
+                  <div className="flex flex-col gap-1 items-end justify-end">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 mr-1">Troco</span>
+                    <span className={`text-2xl font-black tabular-nums tracking-tighter leading-none ${troco > 0 ? 'text-amber-400' : 'text-neutral-700'}`}>
                       {fmt(troco)}
                     </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[10, 20, 50, 100].map(val => (
-                    <button type="button" key={val} onClick={() => resetForm({ ...watch(), valorRecebido: val })} className="bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg py-1.5 text-xs font-bold text-neutral-300 transition-colors">R$ {val}</button>
+                    <button type="button" key={val} onClick={() => setValue("valorRecebido", val)} className="bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg py-2 text-[10px] font-black text-neutral-400 transition-all active:scale-95">R$ {val}</button>
                   ))}
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
 
-          <AnimatePresence>
             {pagamentoType === 'MISTO' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-4 overflow-hidden pt-2">
-                <div className="flex gap-4">
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Pix (R$)</label>
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-3 overflow-hidden">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500">Pix</label>
                     <input
                       type="number"
                       step="0.01"
                       inputMode="decimal"
                       placeholder="0,00"
                       {...register("valorPix")}
-                      onChange={(e) => setValue("valorPix", sanitize(e.target.value))}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"
+                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-lg font-black focus:border-emerald-500 focus:bg-white/10 outline-none transition-all"
                     />
                   </div>
-                  <div className="flex-1 flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Dinheiro (R$)</label>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500">Dinheiro</label>
                     <input
                       type="number"
                       step="0.01"
                       inputMode="decimal"
                       placeholder="0,00"
                       {...register("valorDinheiro")}
-                      onChange={(e) => setValue("valorDinheiro", sanitize(e.target.value))}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"
+                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-lg font-black focus:border-emerald-500 focus:bg-white/10 outline-none transition-all"
                     />
                   </div>
                 </div>
                 
                 <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Restante</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-neutral-600">Restante</span>
                     <span className={`text-xl font-black tabular-nums tracking-tighter ${faltaMisto === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {fmt(faltaMisto)}
                     </span>
                   </div>
                   {trocoMisto > 0 && (
                     <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Troco (Dinheiro)</span>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-amber-500">Troco</span>
                       <span className="text-xl font-black tabular-nums tracking-tighter text-amber-400">
                         {fmt(trocoMisto)}
                       </span>
@@ -778,24 +1005,49 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
             )}
           </AnimatePresence>
 
-          <div className="flex gap-3 pt-2">
-            <button onClick={handleSaveToComanda} disabled={items.length === 0} className="flex-1 h-14 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 text-neutral-300 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all">{activeComandaId ? 'Atualizar Comanda' : 'Salvar na Comanda'} <ClipboardList size={16}/></button>
+          <div className="flex gap-3">
+            <button 
+              type="button"
+              onClick={handleSaveToComanda} 
+              disabled={items.length === 0} 
+              className="flex-1 h-12 bg-transparent border border-white/5 hover:bg-white/5 disabled:opacity-20 text-neutral-500 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+            >
+              Comanda <ClipboardList size={14}/>
+            </button>
           </div>
 
-          <button onClick={handleSubmit(onSubmit)} disabled={items.length === 0 || !pagamentoType || (pagamentoType === 'DINHEIRO' && valorRecebido < total) || (pagamentoType === 'MISTO' && !isMistoValid) || mutation.isPending || !isTurnoAberto} className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 disabled:bg-neutral-800 disabled:text-neutral-600 text-white rounded-2xl font-black text-lg shadow-[0_10px_40px_rgba(16,185,129,0.2)] disabled:shadow-none active:scale-[0.98] transition-all flex items-center justify-center gap-3">
-            {mutation.isPending ? <Loader2 className="animate-spin"/> : <><CheckCircle2 size={24}/> FINALIZAR PAGTO</>}
+          <button 
+            type="submit" 
+            disabled={items.length === 0 || !pagamentoType || (pagamentoType === 'DINHEIRO' && valorRecebido < total) || (pagamentoType === 'MISTO' && !isMistoValid) || mutation.isPending || !isTurnoAberto} 
+            className="
+              w-full h-16 bg-emerald-600 hover:bg-emerald-500 disabled:bg-neutral-900 disabled:text-neutral-700 
+              text-white rounded-2xl font-black text-lg shadow-[0_15px_40px_rgba(16,185,129,0.15)] 
+              active:scale-[0.98] transition-all flex items-center justify-center gap-3 relative overflow-hidden group
+            "
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite] pointer-events-none" />
+            {mutation.isPending ? <Loader2 className="animate-spin"/> : <><CheckCircle2 size={20}/> FINALIZAR</>}
           </button>
+
+          {mutation.isError && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-red-400 bg-red-950/20 p-4 rounded-2xl border border-red-500/20 flex items-center gap-2 text-xs font-bold mt-2">
+              <AlertTriangle size={14} />
+              {mutation.error?.message}
+            </motion.div>
+          )}
         </footer>
-      </aside>
+      </form>
 
       {/* Botão flutuante do carrinho no Mobile */}
       {items.length > 0 && (
         <button onClick={() => setCartOpen(true)} className="lg:hidden fixed bottom-6 left-6 right-6 z-30 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl h-16 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
           <div className="flex items-center gap-3">
             <ShoppingCart size={20} />
-            <span className="font-bold text-sm">{items.length} {items.length === 1 ? 'item' : 'itens'}</span>
+            <span className="font-bold text-sm">{isMounted ? items.length : 0} {items.length === 1 ? 'item' : 'itens'}</span>
           </div>
-          <span className="font-black text-lg">{fmt(total)}</span>
+          <span className="font-black text-lg">
+            {isMounted ? fmt(total) : 'R$ 0,00'}
+          </span>
         </button>
       )}
 

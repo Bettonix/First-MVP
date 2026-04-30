@@ -23,7 +23,7 @@ export default async function DashboardOverview() {
             <Package size={18} /> Estoque
           </Link>
           <Link href="/" className="bg-slate-900 hover:bg-black text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors">
-            Abrir PDV <ArrowUpRight size={18} />
+            Abrir Balcão <ArrowUpRight size={18} />
           </Link>
         </div>
       </div>

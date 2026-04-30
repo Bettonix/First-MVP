@@ -17,6 +17,8 @@ interface CartState {
   descontoCentavos: number;
   addItem: (item: Omit<CartItem, 'quantidade' | 'prepared'>) => void;
   removeItem: (produtoId: string) => void;
+  incrementItem: (produtoId: string) => void;
+  decrementItem: (produtoId: string) => void;
   togglePrepared: (produtoId: string) => void;
   setItems: (items: CartItem[]) => void;
   setDesconto: (centavos: number) => void;
@@ -49,6 +51,20 @@ export const useCartStore = create<CartState>()(
 
       removeItem: (produtoId) => set((state) => ({
         items: state.items.filter(i => i.produtoId !== produtoId)
+      })),
+      
+      incrementItem: (produtoId) => set((state) => ({
+        items: state.items.map(i => i.produtoId === produtoId ? { ...i, quantidade: i.quantidade + 1 } : i)
+      })),
+
+      decrementItem: (produtoId) => set((state) => ({
+        items: state.items.map(i => {
+          if (i.produtoId === produtoId) {
+            const newQty = Math.max(1, i.quantidade - 1);
+            return { ...i, quantidade: newQty };
+          }
+          return i;
+        })
       })),
 
       togglePrepared: (produtoId) => set((state) => ({

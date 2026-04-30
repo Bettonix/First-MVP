@@ -105,28 +105,27 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: ProdutoFormData) => {
-      if (!editProduct) throw new Error("Sem produto para editar");
-      const res = await updateProduto(editProduct.id, data);
+    mutationFn: async ({ id, data }: { id: string; data: ProdutoFormData }) => {
+      const res = await updateProduto(id, data);
       if (!res.success) throw new Error((res as any).error || "Erro ao atualizar");
       return (res as any).produto;
     },
-    onMutate: async (updatedData) => {
+    onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ['produtos-pdv'] });
       const previousProdutos = queryClient.getQueryData(['produtos-pdv']);
 
       queryClient.setQueryData(['produtos-pdv'], (old: unknown) => {
         if (!Array.isArray(old) || !editProduct) return old;
         return old.map((p: any) =>
-          p.id === editProduct.id
+          p.id === id
             ? {
                 ...p,
-                nome: updatedData.nome,
-                precoCentavos: Math.round(updatedData.preco * 100),
-                precoCustoCentavos: Math.round((updatedData.precoCusto || 0) * 100),
-                categoria: updatedData.categoria || "Outros",
-                estoqueAtual: updatedData.estoqueAtual || 0,
-                isFavorito: updatedData.isFavorito ?? true,
+                nome: data.nome,
+                precoCentavos: Math.round(data.preco * 100),
+                precoCustoCentavos: Math.round((data.precoCusto || 0) * 100),
+                categoria: data.categoria || "Outros",
+                estoqueAtual: data.estoqueAtual || 0,
+                isFavorito: data.isFavorito ?? true,
               }
             : p
         );
@@ -167,7 +166,8 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
 
   const handleFormSubmit = async (data: ProdutoFormData) => {
     if (editProduct) {
-      updateMutation.mutate(data);
+      console.log("📤 Enviando atualização para ID:", editProduct.id);
+      updateMutation.mutate({ id: editProduct.id, data });
     } else {
       createMutation.mutate(data);
     }
@@ -262,7 +262,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
               <AnimatePresence>
                 {isDeleting && (
                   <DeleteConfirmModal 
-                    product={editProduct} 
+                    product={editProduct ?? null} 
                     onConfirm={() => deleteMutation.mutate()} 
                     onCancel={() => setIsDeleting(false)} 
                     isPending={deleteMutation.isPending} 

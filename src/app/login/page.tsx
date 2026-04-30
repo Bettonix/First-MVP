@@ -49,7 +49,7 @@ export default function LoginPage() {
           {/* Título e subtítulo */}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-neutral-100 tracking-tight mb-1.5">
-              Entrar no PDV
+              Acessar Meu Balcão
             </h1>
             <p className="text-sm text-neutral-500 leading-relaxed">
               Sem senha. Digite seu e-mail e receba um{" "}

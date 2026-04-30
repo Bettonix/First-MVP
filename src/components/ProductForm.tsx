@@ -1,9 +1,10 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Star, AlertTriangle, ChevronUp } from "lucide-react";
+import { Loader2, Star, AlertTriangle } from "lucide-react";
 import { produtoSchema, ProdutoFormData, CATEGORIAS_PRODUTO } from "@/schemas/produto.schema";
+import { PremiumSelect } from "./PremiumSelect";
 
 interface ProductFormProps {
   onSubmit: (data: ProdutoFormData) => Promise<void>;
@@ -17,7 +18,7 @@ const labelClass = "text-[11px] font-black text-neutral-400 uppercase tracking-[
 const errorClass = "text-rose-400 text-xs font-bold mt-2 ml-1 flex items-center gap-1";
 
 export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }: ProductFormProps) {
-  const { register, handleSubmit, formState: { errors } } = useForm<ProdutoFormData>({
+  const { register, control, handleSubmit, formState: { errors } } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema) as any,
     defaultValues: {
       nome: defaultValues?.nome || "",
@@ -65,16 +66,19 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
       <div className="grid grid-cols-2 gap-5">
         <div>
           <label className={labelClass}>Categoria</label>
-          <div className="relative">
-            <select {...register("categoria")} className={`${inputClass} appearance-none cursor-pointer pr-10`}>
-              {CATEGORIAS_PRODUTO.map(cat => (
-                <option key={cat} value={cat} className="bg-neutral-900 text-neutral-100">{cat}</option>
-              ))}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-500">
-              <ChevronUp size={16} className="rotate-180" />
-            </div>
-          </div>
+          <Controller
+            name="categoria"
+            control={control}
+            render={({ field }) => (
+              <PremiumSelect
+                options={CATEGORIAS_PRODUTO as unknown as string[]}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                className={`${inputClass} appearance-none cursor-pointer`}
+              />
+            )}
+          />
           {errors.categoria && <span className={errorClass}><AlertTriangle size={12}/> {errors.categoria.message}</span>}
         </div>
         <div>
