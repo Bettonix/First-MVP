@@ -1,20 +1,62 @@
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL2")
-  directUrl = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
+/// Espelho do auth.users do Supabase no schema public.
+/// O `id` é o UUID gerado pelo Supabase Auth — NÃO autoincrement.
+/// Populado automaticamente pela trigger `handle_new_user` no Supabase.
+model Profile {
+  id        String   @id              // auth.users.id (UUID)
+  email     String   @unique
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now())  @map("created_at")
+
+  @@map("profiles")
+}
+
 model Vendedor {
   id        String   @id @default(cuid()) @map("tenant_id") // Atua como Tenant ID
-  authId    String   @unique // ID gerado pelo Supabase Auth
+  authId    String   @unique // ID gerado pelo Supabase Auth (= Profile.id)
   nomeLoja  String
   criadoEm  DateTime @default(now())
 
   @@index([authId])
+}
+
+/// Mesa configurada pelo tenant. Cada mesa pode ter N comandas (histórico), mas apenas UMA ABERTA por vez.
+model Mesa {
+  id        BigInt    @id @default(autoincrement())
+  tenantId  String    @map("tenant_id")
+  nome      String
+  ativa     Boolean   @default(true)
+  criadoEm DateTime   @default(now()) @map("criado_em")
+
+  comandas  Comanda[]
+
+  @@index([tenantId])
+}
+
+/// Comanda persistida, vinculada a uma Mesa. Status: ABERTA | FECHADA.
+/// Múltiplas comandas ABERTAS por mesa são permitidas (ex: vários clientes na mesma mesa).
+model Comanda {
+  id            BigInt    @id @default(autoincrement())
+  tenantId      String    @map("tenant_id")
+  mesaId        BigInt    @map("mesa_id")
+  mesa          Mesa      @relation(fields: [mesaId], references: [id], onDelete: Cascade)
+  name          String?                              // Label opcional (ex: "João", "Cliente 2")
+  status        String    @default("ABERTA")         // ABERTA | FECHADA
+  totalCentavos Int       @default(0)                @map("total_centavos")
+  itens         Json?
+  abertaEm      DateTime  @default(now())            @map("aberta_em")
+  fechadaEm     DateTime?                            @map("fechada_em")
+
+  @@index([tenantId, status])
+  @@index([mesaId])
 }
 
 model Turno {
@@ -54,9 +96,28 @@ model Produto {
   categoria           String   @default("Outros")
   estoqueAtual        Int      @default(0)
   estoqueInicial      Int      @default(0)
+  estoqueMinimo       Int      @default(0)      @map("estoque_minimo")
+  gerenciarEstoque    Boolean  @default(true)   @map("gerenciar_estoque")
   isFavorito          Boolean  @default(true)
-  
+
+  movimentacoes       MovimentacaoEstoque[]
+
   @@index([tenantId, isFavorito])
+}
+
+/// Histórico de auditoria de estoque (ENTRADA, SAIDA, AJUSTE).
+model MovimentacaoEstoque {
+  id                  BigInt   @id @default(autoincrement())
+  tenantId            String   @map("tenant_id")
+  produtoId           BigInt   @map("produto_id")
+  produto             Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  tipo                String   // ENTRADA | SAIDA | AJUSTE
+  quantidade          Int
+  quantidadeAnterior  Int      @map("quantidade_anterior")
+  motivo              String   @default("")
+  criadoEm            DateTime @default(now()) @map("criado_em")
+
+  @@index([tenantId, produtoId])
 }
 
 model Venda {
@@ -73,5 +134,6 @@ model Venda {
 
   criadoEm        DateTime  @default(now())
 
-  @@index([tenantId, turnoId, criadoEm]) 
+  @@index([tenantId, turnoId, criadoEm])
+  @@index([tenantId, metodoPagto])
 }

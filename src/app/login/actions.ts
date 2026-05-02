@@ -1,27 +1,43 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-export async function signInWithMagicLink(email: string) {
+function getSiteOrigin(fallback: string): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? fallback;
+}
+
+export async function signInWithGoogle() {
   const supabase = await createClient();
+  const headersList = await headers();
+  const origin = headersList.get("origin") ?? getSiteOrigin("http://localhost:3000");
 
-  // NEXT_PUBLIC_SITE_URL tem prioridade (Vercel Prod/Preview).
-  // Fallback para localhost durante o desenvolvimento.
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
     options: {
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      redirectTo: `${origin}/auth/callback`,
     },
   });
 
-  if (error) {
-    return { success: false, error: error.message };
+  if (error || !data.url) {
+    return { error: error?.message ?? "Erro ao iniciar login com Google" };
   }
 
+  redirect(data.url);
+}
+
+export async function signInWithPassword(email: string, password: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function signUpWithPassword(email: string, password: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) return { error: error.message };
   return { success: true };
 }
 

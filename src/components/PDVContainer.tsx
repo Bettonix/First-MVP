@@ -4,24 +4,25 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { updateAccessibilitySettings } from "@/app/actions/accessibility";
 import {
   ShoppingCart, Banknote, QrCode, CreditCard,
   Loader2, Lock, Minus, ChevronUp,
   DollarSign, Hash, TrendingUp, Star, LayoutGrid, Clock,
   Package, AlertTriangle, Users, Save, X, CheckCircle2,
   ClipboardList, ShoppingBag, Printer, MessageCircle, Search,
-  Pencil, Trash2, Plus, Sun, Moon,
+  Pencil, Trash2, Plus, TableProperties, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
 import { useTabStore, Comanda } from "@/store/useTabStore";
 import { getProdutosPDV, depleteStock, deleteProduto } from "@/app/actions/produtos";
-import { registrarVenda } from "@/app/actions/vendas";
+import { registrarVenda, getHistoricoVendas, type VendaDetalhe } from "@/app/actions/vendas";
+import { getMesasComComanda, abrirComanda, fecharComanda, type MesaComComanda } from "@/app/actions/comandas";
+import { SaleDetailSheet } from "./SaleDetailSheet";
 import { QuickAddSheet, DeleteConfirmModal } from "./QuickAddSheet";
 import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
-import { useState, useEffect, useRef, useOptimistic, useTransition } from "react";
+import { useState, useEffect, useRef, useOptimistic, useTransition, memo, useCallback } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 // ─── Utility Functions ────────────────────────────────────────
@@ -49,7 +50,7 @@ function Toast({ message, type, onClose }: { message: string, type: 'success' | 
     >
       {type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
       <span className="text-sm font-bold tracking-tight">{message}</span>
-      <button onClick={onClose} className="ml-2 hover:opacity-70 transition-opacity"><X size={14} /></button>
+      <button onClick={onClose} aria-label="Fechar notificação" className="ml-2 hover:opacity-70 transition-opacity"><X size={14} /></button>
     </motion.div>
   );
 }
@@ -60,7 +61,7 @@ function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: { isOpen
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-sm p-8 rounded-[32px] border border-white/10 relative shadow-2xl flex flex-col items-center text-center">
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-sm p-8 rounded-3xl border border-white/10 relative shadow-2xl flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto">
         <h3 className="text-lg font-black mb-2">{title}</h3>
         <p className="text-neutral-400 text-sm mb-6">{message}</p>
         <div className="w-full flex gap-3">
@@ -172,6 +173,39 @@ function OpenTime({ createdAt }: { createdAt: number }) {
   return <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">{diff}</span>;
 }
 
+// ─── Product Card (memoized — prevents re-render on cart changes) ─
+interface ProductCardProps {
+  produto: { id: string; nome: string; precoCentavos: number; estoqueAtual: number };
+  fmt: (c: number) => string;
+  onAdd: (id: string, nome: string, preco: number) => void;
+}
+const ProductCard = memo(function ProductCard({ produto: p, fmt, onAdd }: ProductCardProps) {
+  const isEsgotado = p.estoqueAtual <= 0;
+  return (
+    <button
+      key={p.id}
+      disabled={isEsgotado}
+      onClick={() => onAdd(p.id, p.nome, p.precoCentavos)}
+      className={`bg-[#13161A] border border-white/5 p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-all relative overflow-hidden group shadow-xl ${isEsgotado ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-emerald-500/30 active:scale-[0.98]'}`}
+    >
+      <div className={`w-16 h-16 rounded-full bg-neutral-800 border-2 border-white/5 flex items-center justify-center transition-transform ${!isEsgotado && 'group-hover:scale-105'}`}>
+        <Package size={24} className={isEsgotado ? 'text-neutral-700' : 'text-neutral-500'} />
+      </div>
+      <div>
+        <p className={`font-black text-sm leading-tight transition-colors line-clamp-2 ${!isEsgotado && 'group-hover:text-emerald-400'}`}>{p.nome}</p>
+        <p className={`font-bold mt-1 text-sm tabular-nums ${isEsgotado ? 'text-neutral-500' : 'text-emerald-500/80'}`}>{fmt(p.precoCentavos)}</p>
+      </div>
+      {isEsgotado && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rotate-[-15deg] pointer-events-none">
+          <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-rose-500/20">
+            Esgotado
+          </span>
+        </div>
+      )}
+    </button>
+  );
+});
+
 // ─── Main Component ───────────────────────────────────────────
 
 export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems, recentSales, initialProdutos }: PDVContainerProps) {
@@ -214,27 +248,45 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const [selectedHistoryDate, setSelectedHistoryDate] = useState(new Date());
   const [selectedDashboardDate, setSelectedDashboardDate] = useState(new Date());
   const [isMounted, setIsMounted] = useState(false);
-  const [isSunlightActive, setIsSunlightActive] = useState(false);
-  const [isPendingTheme, startThemeTransition] = useTransition();
+  useEffect(() => { setIsMounted(true); }, []);
 
-  const toggleSunlight = () => {
-    const isSunlight = document.documentElement.classList.contains('sunlight-mode');
-    const nextTheme = isSunlight ? 'dark' : 'sunlight';
+  // ─── Mesa Vinculada (PDV Selector) ────────────────────────────
+  const [vinculadoAMesa, setVinculadoAMesa]       = useState(false);
+  const [mesasPDV, setMesasPDV]                   = useState<MesaComComanda[]>([]);
+  const [mesasPDVLoading, setMesasPDVLoading]     = useState(false);
+  const [selectedMesaId, setSelectedMesaId]       = useState("");
+  const [selectedComandaId, setSelectedComandaId] = useState("");
+  const [novaComandaNome, setNovaComandaNome]      = useState("");
 
-    // Optimistic: aplica a classe imediatamente para feedback visual instantâneo
-    document.documentElement.classList.toggle('sunlight-mode', !isSunlight);
-    document.body.classList.toggle('sunlight-mode', !isSunlight);
-    setIsSunlightActive(!isSunlight);
-
-    startThemeTransition(async () => {
-      await updateAccessibilitySettings(nextTheme);
-    });
+  const handleToggleVinculado = (on: boolean) => {
+    setVinculadoAMesa(on);
+    if (on && mesasPDV.length === 0) {
+      setMesasPDVLoading(true);
+      getMesasComComanda().then((data) => { setMesasPDV(data); setMesasPDVLoading(false); });
+    }
+    if (!on) { setSelectedMesaId(""); setSelectedComandaId(""); setNovaComandaNome(""); }
   };
 
-  useEffect(() => {
-    setIsMounted(true);
-    setIsSunlightActive(document.documentElement.classList.contains('sunlight-mode'));
-  }, []);
+  const resetMesaSelector = () => {
+    setVinculadoAMesa(false);
+    setSelectedMesaId("");
+    setSelectedComandaId("");
+    setNovaComandaNome("");
+    setMesasPDV([]);
+  };
+
+  const handleAddProduct = useCallback((id: string, nome: string, preco: number) => {
+    addItem({ produtoId: id, nome, precoCentavos: safeCentavos(preco) });
+    setCartOpen(true);
+  }, [addItem]);
+
+  // Sale detail sheet + history query
+  const [selectedSale, setSelectedSale] = useState<VendaDetalhe | null>(null);
+  const historicoQuery = useQuery({
+    queryKey: ['historico-vendas', selectedHistoryDate.toDateString()],
+    queryFn: () => getHistoricoVendas(selectedHistoryDate.toISOString()),
+    staleTime: 30_000,
+  });
 
   // CRUD & Feedback State
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -350,14 +402,29 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       }
 
       console.log("🚀 Auditoria de Payload (Supabase):", payload);
-      
+
+      // Resolve comanda to close (create new if needed)
+      let comandaParaFechar: string | null = null;
+      if (vinculadoAMesa && selectedMesaId) {
+        if (selectedComandaId === "__nova__") {
+          const cr = await abrirComanda(selectedMesaId, novaComandaNome || undefined);
+          if ("id" in cr) comandaParaFechar = cr.id;
+        } else if (selectedComandaId) {
+          comandaParaFechar = selectedComandaId;
+        }
+      }
+
       const res = await registrarVenda(payload);
 
       if (!res.success) {
         console.error("❌ Erro na Server Action:", res.error);
         throw new Error(res.error);
       }
-      
+
+      if (comandaParaFechar) {
+        await fecharComanda(comandaParaFechar);
+      }
+
       return res;
     },
     onSuccess: async () => {
@@ -368,7 +435,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       queryClient.invalidateQueries({ queryKey: ['produtos-pdv'] });
 
       if (activeComandaId) closeComanda(activeComandaId);
-      
+      resetMesaSelector();
       clearCart();
       setCartOpen(false);
       resetForm();
@@ -465,50 +532,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   });
 
   return (
-    <div className="h-screen w-full bg-[#0B0D11] overflow-hidden text-neutral-100 font-sans lg:grid lg:grid-cols-[72px_1fr_400px]">
-      
-      {/* ─── SIDEBAR (COLUNA 1) ─── */}
-      <aside className="hidden lg:flex flex-col items-center py-6 border-r border-white/5 bg-[#0B0D11] z-[100]">
-        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center mb-8 shadow-lg shadow-emerald-500/20">
-          <LayoutGrid size={20} className="text-white" />
-        </div>
-        <nav className="flex flex-col gap-4 flex-1">
-          <button onClick={() => setActiveView("VENDA")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'VENDA' || activeView === 'COMANDAS' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
-            <ShoppingCart size={20} />
-            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Balcão</span>
-          </button>
-          <button onClick={() => setActiveView("HISTORICO")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'HISTORICO' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
-            <Clock size={20} />
-            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Histórico</span>
-          </button>
-          <button onClick={() => setActiveView("ESTOQUE")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'ESTOQUE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
-            <Package size={20} />
-            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Estoque</span>
-          </button>
-          <button onClick={() => setActiveView("RELATORIOS")} className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all group relative border ${activeView === 'RELATORIOS' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'text-neutral-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-transparent'}`}>
-            <TrendingUp size={20} />
-            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Dashboard</span>
-          </button>
+    <div className="h-full w-full bg-[#0B0D11] overflow-hidden text-neutral-100 font-sans md:grid md:grid-cols-[1fr_400px]">
 
-          <div className="w-8 h-[1px] bg-white/5 mx-auto my-2" />
-
-          <button 
-            type="button"
-            onClick={toggleSunlight} 
-            disabled={isPendingTheme}
-            className="w-12 h-12 rounded-xl flex items-center justify-center text-neutral-500 hover:text-amber-400 hover:bg-amber-400/10 transition-all group relative"
-          >
-            {isPendingTheme ? <Loader2 size={18} className="animate-spin" /> : isSunlightActive ? <Moon size={20} /> : <Sun size={20} />}
-            <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">{isSunlightActive ? 'Modo Escuro' : 'Modo Sol'}</span>
-          </button>
-        </nav>
-        <button onClick={() => { clearCart(); window.location.href='/login'; }} className="w-12 h-12 rounded-xl text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition-all group relative mt-auto">
-          <Lock size={20} />
-          <span className="absolute left-full ml-4 bg-neutral-800 text-white text-xs px-2 py-1.5 rounded-md opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[110] shadow-xl border border-white/10">Sair</span>
-        </button>
-      </aside>
-
-      {/* ─── MAIN CONTENT (COLUNA 2) ─── */}
+      {/* ─── MAIN CONTENT (COLUNA 1) ─── */}
       <div className="h-full flex flex-col overflow-hidden relative z-30">
         
         {/* Header (Fixo no Topo) */}
@@ -556,8 +582,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
         {/* Tab Navigation */}
         <nav className="px-6 py-4 flex flex-shrink-0 gap-3 border-b border-white/5 bg-[#0B0D11]">
-          <button onClick={() => setActiveView("VENDA")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeView === "VENDA" ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Venda Direta</button>
-          <button onClick={() => setActiveView("COMANDAS")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === "COMANDAS" ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Gestão de Comandas <span className="bg-white/10 px-1.5 py-0.5 rounded-md text-[10px]">{comandas.length}</span></button>
+          <button onClick={() => setActiveView("VENDA")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeView === "VENDA" ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Pedido Balcão</button>
+          <button onClick={() => setActiveView("COMANDAS")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === "COMANDAS" ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Pedidos em Aberto <span className="bg-white/10 px-1.5 py-0.5 rounded-md text-[10px]">{comandas.length}</span></button>
         </nav>
 
         {/* Main Area (Scroll Interno) */}
@@ -570,10 +596,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                    <input 
+                    <input
                       ref={searchInputRef}
-                      type="text" 
-                      placeholder="Buscar produto... (Pressione '/' para focar)"
+                      autoFocus
+                      type="search"
+                      inputMode="search"
+                      placeholder="Bipar código ou digitar produto..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full h-12 bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-sm font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-600"
@@ -590,43 +618,21 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 ) : filteredProdutos.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 opacity-60"><Package size={48} className="mb-4"/><p className="font-bold">Nenhum produto encontrado</p></div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 lg:pb-0">
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 md:pb-0">
                     {optimisticProdutos
                       .filter((p: any) => {
                         const matchesSearch = p.nome.toLowerCase().includes(searchQuery.toLowerCase());
                         const matchesTab = activeTab === "todos" || (activeTab === "favoritos" && p.isFavorito);
                         return matchesSearch && matchesTab;
                       })
-                      .map((p: any) => {
-                        const isEsgotado = p.estoqueAtual <= 0;
-                        return (
-                          <button 
-                            key={p.id} 
-                            disabled={isEsgotado}
-                            onClick={() => { 
-                              addItem({ produtoId: String(p.id), nome: p.nome, precoCentavos: safeCentavos(p.precoCentavos) }); 
-                              setCartOpen(true); 
-                            }} 
-                            className={`bg-[#13161A] border border-white/5 p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-all relative overflow-hidden group shadow-xl ${isEsgotado ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-emerald-500/30 active:scale-[0.98]'}`}
-                          >
-                            <div className={`w-16 h-16 rounded-full bg-neutral-800 border-2 border-white/5 flex items-center justify-center transition-transform ${!isEsgotado && 'group-hover:scale-105'}`}>
-                              <Package size={24} className={isEsgotado ? 'text-neutral-700' : 'text-neutral-500'}/>
-                            </div>
-                            <div>
-                              <p className={`font-black text-sm leading-tight transition-colors line-clamp-2 ${!isEsgotado && 'group-hover:text-emerald-400'}`}>{p.nome}</p>
-                              <p className={`font-bold mt-1 text-sm tabular-nums ${isEsgotado ? 'text-neutral-500' : 'text-emerald-500/80'}`}>{fmt(p.precoCentavos)}</p>
-                            </div>
-
-                            {isEsgotado && (
-                              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rotate-[-15deg] pointer-events-none">
-                                <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-rose-500/20">
-                                  Esgotado
-                                </span>
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                      .map((p: any) => (
+                        <ProductCard
+                          key={p.id}
+                          produto={{ id: String(p.id), nome: p.nome, precoCentavos: p.precoCentavos, estoqueAtual: p.estoqueAtual }}
+                          fmt={fmt}
+                          onAdd={handleAddProduct}
+                        />
+                      ))}
                   </div>
                 )}
               </motion.div>
@@ -638,7 +644,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                   <div className="h-80 rounded-3xl border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-neutral-600 bg-white/[0.02]"><ClipboardList size={48} className="mb-4 opacity-20"/><p className="font-bold">Nenhuma comanda aberta</p></div>
                 ) : (
                   <LayoutGroup>
-                    <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20 lg:pb-0">
+                    <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20 md:pb-0">
                       {comandas.map((c) => (
                         <motion.button layout key={c.id} onClick={() => selectComanda(c)} className="bg-[#13161A] border border-white/10 p-6 rounded-3xl flex flex-col gap-4 text-left hover:border-emerald-500/50 transition-all relative overflow-hidden group shadow-2xl">
                           <div className="flex justify-between items-start">
@@ -672,31 +678,25 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
-                  {recentSales.filter(s => {
-                    const saleDate = new Date(s.criadoEm);
-                    return saleDate.getDate() === selectedHistoryDate.getDate() &&
-                           saleDate.getMonth() === selectedHistoryDate.getMonth() &&
-                           saleDate.getFullYear() === selectedHistoryDate.getFullYear();
-                  }).length === 0 ? (
+                  {historicoQuery.isLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />
+                    ))
+                  ) : (historicoQuery.data ?? []).length === 0 ? (
                     <div className="bg-white/5 border border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center text-center opacity-50">
-                       <Clock size={48} className="mb-6 text-neutral-500" />
-                       <p className="font-bold text-lg mb-2">Nenhuma venda nesta data</p>
-                       <p className="text-sm text-neutral-400">Tente selecionar outro dia no calendário acima.</p>
+                      <Clock size={48} className="mb-6 text-neutral-500" />
+                      <p className="font-bold text-lg mb-2">Nenhuma venda nesta data</p>
+                      <p className="text-sm text-neutral-400">Tente selecionar outro dia no calendário acima.</p>
                     </div>
                   ) : (
-                    recentSales
-                      .filter(s => {
-                        const saleDate = new Date(s.criadoEm);
-                        return saleDate.getDate() === selectedHistoryDate.getDate() &&
-                               saleDate.getMonth() === selectedHistoryDate.getMonth() &&
-                               saleDate.getFullYear() === selectedHistoryDate.getFullYear();
-                      })
-                      .map((sale) => (
-                      <motion.div 
+                    (historicoQuery.data ?? []).map((sale) => (
+                      <motion.button
                         key={sale.id}
+                        type="button"
+                        onClick={() => setSelectedSale(sale)}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="bg-[#13161A] border border-white/5 p-5 rounded-2xl flex items-center justify-between group hover:border-emerald-500/30 transition-all"
+                        className="w-full text-left bg-[#13161A] border border-white/5 p-5 rounded-2xl flex items-center justify-between group hover:border-emerald-500/30 hover:bg-[#161a20] active:scale-[0.99] transition-all cursor-pointer"
                       >
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-neutral-400 group-hover:bg-emerald-500/10 group-hover:text-emerald-400 transition-colors">
@@ -714,9 +714,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-black text-emerald-400 tabular-nums tracking-tighter">{fmt(sale.totalCentavos)}</p>
-                          <p className="text-[10px] font-bold text-emerald-500/40 uppercase tracking-widest mt-1">Finalizada</p>
+                          <p className="text-[10px] font-bold text-neutral-500/60 uppercase tracking-widest mt-1 group-hover:text-emerald-500/60 transition-colors">Ver detalhes →</p>
                         </div>
-                      </motion.div>
+                      </motion.button>
                     ))
                   )}
                 </div>
@@ -797,21 +797,26 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       </div>
 
       {/* ─── SIDE PANEL (CARRINHO / CHECKOUT PRO) (COLUNA DIREITA) ─── */}
-      <div className={`fixed inset-0 z-40 lg:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
-      
-      <form 
+      <div className={`fixed inset-0 z-40 md:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
+
+      <form
         noValidate
         onSubmit={handleSubmit(onSubmit)}
         className={`
-          fixed inset-y-0 right-0 z-50 w-full max-w-[420px] 
-          lg:static lg:w-full lg:max-w-none 
-          bg-[#0B0D11]/40 backdrop-blur-3xl 
-          lg:border-l lg:border-white/10 flex flex-col 
-          transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]
-          ${cartOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
-          relative shadow-[0_0_100px_rgba(0,0,0,0.8)]
+          fixed bottom-0 inset-x-0 z-50 w-full h-[92dvh] rounded-t-3xl overflow-hidden
+          md:static md:inset-auto md:h-full md:rounded-none md:w-auto
+          bg-[#0D0F14]
+          md:border-l md:border-white/10 flex flex-col
+          transition-transform duration-300 ease-in-out
+          ${cartOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+          shadow-[0_-20px_80px_rgba(0,0,0,0.6)]
+          ${activeComandaId && isMounted ? 'border-t-4 border-emerald-500' : 'border-t-4 border-transparent'}
         `}
       >
+        {/* Drag handle — mobile only */}
+        <div className="md:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
         {/* Glow Decorativo de Fundo */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
         
@@ -822,14 +827,107 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
               <h2 className="text-xs font-black uppercase tracking-[0.3em] text-neutral-500">Checkout Pro</h2>
             </div>
             <h3 className="text-xl font-black text-white tracking-tighter">
-              {activeComandaId && isMounted ? 'Comanda Ativa' : 'Pedido Direto'}
+              {activeComandaId && isMounted ? 'Conta em Aberto' : 'Pedido Direto'}
             </h3>
-            {activeComandaId && <p className="text-[10px] text-emerald-400/80 font-bold mt-1 uppercase tracking-widest bg-emerald-400/5 px-2 py-0.5 rounded-md inline-block">Mesa: {comandas.find(c => c.id === activeComandaId)?.clienteNome}</p>}
+            {activeComandaId && isMounted && (
+              <div className="mt-2 flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-lg w-fit">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <p className="text-[10px] text-emerald-300 font-black uppercase tracking-widest">
+                  {comandas.find(c => c.id === activeComandaId)?.clienteNome ?? 'EM ATENDIMENTO'}
+                </p>
+              </div>
+            )}
           </div>
-          <button type="button" onClick={() => setCartOpen(false)} className="lg:hidden w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all"><X size={20}/></button>
+          <button type="button" aria-label="Fechar carrinho" onClick={() => setCartOpen(false)} className="md:hidden w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all"><X size={20}/></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 py-8 relative z-10 scrollbar-hide">
+        {/* ─── Mesa Selector ─────────────────────────────────────── */}
+        {isMounted && (
+          <div className="px-8 py-4 border-b border-white/5 relative z-10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TableProperties size={13} className="text-neutral-500" />
+                <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Vincular à Mesa</span>
+              </div>
+              <button
+                type="button"
+                aria-label={vinculadoAMesa ? "Desvincular mesa" : "Vincular à mesa"}
+                onClick={() => handleToggleVinculado(!vinculadoAMesa)}
+              >
+                {vinculadoAMesa
+                  ? <ToggleRight size={22} className="text-emerald-400" />
+                  : <ToggleLeft size={22} className="text-neutral-600" />}
+              </button>
+            </div>
+
+            {vinculadoAMesa && (
+              <div className="mt-3 space-y-2">
+                {mesasPDVLoading ? (
+                  <div className="flex items-center gap-2 text-neutral-500 text-xs">
+                    <Loader2 size={12} className="animate-spin" /> Carregando mesas...
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={selectedMesaId}
+                      onChange={(e) => { setSelectedMesaId(e.target.value); setSelectedComandaId(""); }}
+                      className="w-full py-2 px-3 rounded-xl text-sm font-semibold outline-none bg-white/5 border border-white/10 text-white"
+                    >
+                      <option value="">Selecionar Mesa...</option>
+                      {mesasPDV.map((m) => (
+                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      ))}
+                    </select>
+
+                    {selectedMesaId && (() => {
+                      const comandasMesa = mesasPDV.find((m) => m.id === selectedMesaId)?.comandas ?? [];
+                      return (
+                        <select
+                          value={selectedComandaId}
+                          onChange={(e) => setSelectedComandaId(e.target.value)}
+                          className="w-full py-2 px-3 rounded-xl text-sm font-semibold outline-none bg-white/5 border border-white/10 text-white"
+                        >
+                          <option value="">Selecionar Comanda...</option>
+                          {comandasMesa.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name ?? `Comanda #${c.id.slice(-4)}`} — {fmtBRL(c.totalCentavos)}
+                            </option>
+                          ))}
+                          <option value="__nova__">+ Nova Comanda</option>
+                        </select>
+                      );
+                    })()}
+
+                    {selectedComandaId === "__nova__" && (
+                      <input
+                        value={novaComandaNome}
+                        onChange={(e) => setNovaComandaNome(e.target.value)}
+                        placeholder="Nome do cliente (opcional)"
+                        className="w-full py-2 px-3 rounded-xl text-sm font-medium outline-none bg-white/5 border border-white/10 text-white placeholder:text-neutral-600"
+                      />
+                    )}
+
+                    {selectedComandaId && selectedComandaId !== "__nova__" && (() => {
+                      const comanda = mesasPDV
+                        .find((m) => m.id === selectedMesaId)
+                        ?.comandas.find((c) => c.id === selectedComandaId);
+                      return comanda ? (
+                        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                          <p className="text-[10px] text-emerald-300 font-black uppercase tracking-widest truncate">
+                            Vinculado: {comanda.name ?? `Comanda #${comanda.id.slice(-4)}`}
+                          </p>
+                        </div>
+                      ) : null;
+                    })()}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto overscroll-contain px-8 py-8 relative z-10 scrollbar-hide">
           <AnimatePresence initial={false}>
             {!isMounted || items.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-center px-6 gap-4 opacity-40">
@@ -848,28 +946,30 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                         <p className="font-bold text-sm leading-tight text-neutral-200">{item.nome}</p>
                         <div className="flex items-center gap-3 mt-2">
                            <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-0.5">
-                              <button 
+                              <button
                                 type="button"
-                                onClick={() => decrementItem(item.produtoId)} 
-                                className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
+                                aria-label={`Diminuir quantidade de ${item.nome}`}
+                                onClick={() => decrementItem(item.produtoId)}
+                                className="w-9 h-9 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
                               >
-                                <Minus size={12}/>
+                                <Minus size={14}/>
                               </button>
-                              <span className="w-8 text-center text-xs font-black tabular-nums text-neutral-200">{item.quantidade}</span>
-                              <button 
+                              <span aria-live="polite" className="w-8 text-center text-sm font-black tabular-nums text-neutral-200">{item.quantidade}</span>
+                              <button
                                 type="button"
-                                onClick={() => incrementItem(item.produtoId)} 
-                                className="w-6 h-6 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
+                                aria-label={`Aumentar quantidade de ${item.nome}`}
+                                onClick={() => incrementItem(item.produtoId)}
+                                className="w-9 h-9 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
                               >
-                                <Plus size={12}/>
+                                <Plus size={14}/>
                               </button>
                            </div>
                            <p className="text-xs text-emerald-500/70 font-bold tabular-nums">{fmt(item.precoCentavos * item.quantidade)}</p>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-3">
-                        <button type="button" onClick={() => togglePrepared(item.produtoId)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${item.prepared ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-white/10 text-transparent hover:border-emerald-500/50'}`}><CheckCircle2 size={16}/></button>
-                        <button type="button" onClick={() => removeItem(item.produtoId)} className="text-rose-500/20 hover:text-rose-500 transition-colors p-2"><Trash2 size={18}/></button>
+                        <button type="button" aria-label={item.prepared ? `Desmarcar ${item.nome} como preparado` : `Marcar ${item.nome} como preparado`} onClick={() => togglePrepared(item.produtoId)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${item.prepared ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-white/10 text-transparent hover:border-emerald-500/50'}`}><CheckCircle2 size={16}/></button>
+                        <button type="button" aria-label={`Remover ${item.nome} do carrinho`} onClick={() => removeItem(item.produtoId)} className="text-rose-500/20 hover:text-rose-500 transition-colors p-2"><Trash2 size={18}/></button>
                       </div>
                     </div>
                   </motion.li>
@@ -879,7 +979,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
           </AnimatePresence>
         </div>
 
-        <footer className="p-6 bg-[#0B0D11]/60 backdrop-blur-3xl border-t border-white/5 space-y-4 relative z-10 flex-shrink-0">
+        <footer className="p-6 pb-8 md:pb-6 bg-[#0B0D11]/60 backdrop-blur-3xl border-t border-white/5 space-y-4 relative z-10 shrink-0">
           <div className="flex flex-col gap-1">
             <AnimatePresence>
               {descontoCentavos > 0 && (
@@ -887,7 +987,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                   <span className="text-[9px] font-black uppercase tracking-[0.2em]">Desconto</span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold tabular-nums">-{fmt(descontoCentavos)}</span>
-                    <button type="button" onClick={() => setDesconto(0)} className="hover:text-rose-300 p-1"><X size={10}/></button>
+                    <button type="button" aria-label="Remover desconto" onClick={() => setDesconto(0)} className="hover:text-rose-300 p-1"><X size={10}/></button>
                   </div>
                 </motion.div>
               )}
@@ -1012,7 +1112,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
               disabled={items.length === 0} 
               className="flex-1 h-12 bg-transparent border border-white/5 hover:bg-white/5 disabled:opacity-20 text-neutral-500 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
             >
-              Comanda <ClipboardList size={14}/>
+              Salvar Pedido <ClipboardList size={14}/>
             </button>
           </div>
 
@@ -1026,7 +1126,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
             "
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite] pointer-events-none" />
-            {mutation.isPending ? <Loader2 className="animate-spin"/> : <><CheckCircle2 size={20}/> FINALIZAR</>}
+            {mutation.isPending ? <Loader2 className="animate-spin"/> : <><CheckCircle2 size={20}/> Receber / Finalizar</>}
           </button>
 
           {mutation.isError && (
@@ -1040,7 +1140,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
       {/* Botão flutuante do carrinho no Mobile */}
       {items.length > 0 && (
-        <button onClick={() => setCartOpen(true)} className="lg:hidden fixed bottom-6 left-6 right-6 z-30 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl h-16 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
+        <button onClick={() => setCartOpen(true)} className="md:hidden fixed bottom-20 left-4 right-4 z-30 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl h-14 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
           <div className="flex items-center gap-3">
             <ShoppingCart size={20} />
             <span className="font-bold text-sm">{isMounted ? items.length : 0} {items.length === 1 ? 'item' : 'itens'}</span>
@@ -1056,14 +1156,14 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         {comandaModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setComandaModalOpen(false)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-md p-8 rounded-[40px] border border-white/10 relative shadow-[0_0_80px_rgba(0,0,0,0.5)]">
-              <h2 className="text-2xl font-black mb-6 tracking-tighter">Identificar Comanda</h2>
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-md p-8 rounded-3xl border border-white/10 relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90dvh] overflow-y-auto">
+              <h2 className="text-2xl font-black mb-6 tracking-tighter">Nomear Pedido</h2>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Nome do Cliente ou Mesa</label>
-                  <input autoFocus type="text" value={comandaName} onChange={(e) => setComandaName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmSaveComanda()} placeholder="Ex: João - Mesa 05" className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-xl font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"/>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Nome do Cliente</label>
+                  <input autoFocus type="text" value={comandaName} onChange={(e) => setComandaName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmSaveComanda()} placeholder="Ex: João Silva" className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-xl font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"/>
                 </div>
-                <button onClick={confirmSaveComanda} className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-emerald-600/20 mt-4">ABRIR COMANDA</button>
+                <button onClick={confirmSaveComanda} className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-emerald-600/20 mt-4">SALVAR PEDIDO</button>
               </div>
             </motion.div>
           </div>
@@ -1074,7 +1174,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         {successModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setSuccessModalOpen(false)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-[#13161A] w-full max-w-md p-8 rounded-[40px] border border-white/10 relative shadow-[0_0_80px_rgba(16,185,129,0.3)] flex flex-col items-center text-center">
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-[#13161A] w-full max-w-md p-8 rounded-3xl border border-white/10 relative shadow-[0_0_80px_rgba(16,185,129,0.3)] flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto">
               <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
                 <CheckCircle2 size={40} className="text-emerald-400" />
               </div>
@@ -1105,6 +1205,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         {confirmData && <ConfirmDialog isOpen={!!confirmData} title={confirmData.title} message={confirmData.message} onConfirm={confirmData.action} onCancel={() => setConfirmData(null)} />}
         {discountModalOpen && <DiscountModal isOpen={discountModalOpen} onApply={(val) => { setDesconto(val); setDiscountModalOpen(false); showToast("Desconto aplicado!"); }} onCancel={() => setDiscountModalOpen(false)} />}
       </AnimatePresence>
+
+      {/* ─── SALE DETAIL SHEET ─── */}
+      <SaleDetailSheet sale={selectedSale} onClose={() => setSelectedSale(null)} />
     </div>
   );
 }

@@ -26,6 +26,35 @@ const registrarVendaSchema = z.object({
 
 export type RegistrarVendaInput = z.infer<typeof registrarVendaSchema>;
 
+export interface VendaDetalhe {
+  id: string;
+  totalCentavos: number;
+  metodoPagto: string;
+  criadoEm: string;
+  itens: Array<{ produtoId: string; nome: string; quantidade: number; precoCentavos: number }>;
+}
+
+export async function getHistoricoVendas(date: string): Promise<VendaDetalhe[]> {
+  const tenantId = await getTenantIdOrRedirect();
+  const d = new Date(date);
+  const start = new Date(d); start.setHours(0, 0, 0, 0);
+  const end   = new Date(d); end.setHours(23, 59, 59, 999);
+
+  const vendas = await prisma.venda.findMany({
+    where: { tenantId, criadoEm: { gte: start, lte: end } },
+    orderBy: { criadoEm: 'desc' },
+    select: { id: true, totalCentavos: true, metodoPagto: true, criadoEm: true, itens: true },
+  });
+
+  return vendas.map((v) => ({
+    id: v.id.toString(),
+    totalCentavos: v.totalCentavos,
+    metodoPagto: v.metodoPagto,
+    criadoEm: v.criadoEm.toISOString(),
+    itens: v.itens as VendaDetalhe['itens'],
+  }));
+}
+
 export async function registrarVenda(data: RegistrarVendaInput) {
   const result = registrarVendaSchema.safeParse(data);
 

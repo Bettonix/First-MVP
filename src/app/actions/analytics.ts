@@ -7,6 +7,30 @@ import { getTenantIdOrRedirect } from "@/lib/auth";
 // Cria instância do Service. Em apps maiores, isso pode vir de Injeção de Dependência
 const analyticsService = new AnalyticsService();
 
+export async function getFullDashboardStats(days: number = 30) {
+  const tenantId = await getTenantIdOrRedirect();
+
+  const cached = unstable_cache(
+    async (tId: string, d: number) => {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - d);
+
+      const [revenueByDay, paymentDistribution, periodRevenue, topProducts] = await Promise.all([
+        analyticsService.getRevenueByDay(tId, d),
+        analyticsService.getPaymentDistribution(tId, startDate),
+        analyticsService.getPeriodRevenue(tId),
+        analyticsService.getTopProducts(tId, startDate),
+      ]);
+
+      return { revenueByDay, paymentDistribution, periodRevenue, topProducts };
+    },
+    [`full-dashboard-${tenantId}-${days}`],
+    { tags: ['dashboard-stats', `tenant-${tenantId}`], revalidate: 3600 }
+  );
+
+  return cached(tenantId, days);
+}
+
 export async function getDashboardStats(days: number = 7) {
   const tenantId = await getTenantIdOrRedirect();
   
