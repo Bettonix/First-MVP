@@ -1,14 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getURL } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get('code');
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get('code');
+  const siteUrl = getURL();
 
   if (!code) {
     return NextResponse.redirect(`${siteUrl}/login?error=MissingCode`);
