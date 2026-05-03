@@ -319,6 +319,8 @@ function EstoqueTab() {
 
       {/* Table */}
       <div className="dash-card rounded-3xl overflow-hidden">
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        <div className="min-w-[640px]">
         {/* Header row */}
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-3 px-5 py-3 border-b dash-border">
           <p className="dash-label text-[10px] font-bold uppercase tracking-wider">Produto</p>
@@ -392,6 +394,8 @@ function EstoqueTab() {
             ))}
           </div>
         )}
+        </div>{/* min-w */}
+        </div>{/* overflow-x-auto */}
       </div>
 
       {/* Toast */}
@@ -654,7 +658,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 p-1 dash-card rounded-2xl mb-6 overflow-x-auto scrollbar-hide w-fit">
+      <div className="flex gap-1 p-1 dash-card rounded-2xl mb-6 overflow-x-auto scrollbar-hide">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setActiveTab(id)}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${

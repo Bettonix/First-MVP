@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(claude mcp add gemini-cli -- npx -y gemini-mcp-tool)"
+      "Bash(claude mcp add gemini-cli -- npx -y gemini-mcp-tool)",
+      "Bash(rtk ls *)",
+      "mcp__gemini-cli__ask-gemini",
+      "Bash(rtk grep *)",
+      "Bash(rtk tsc *)",
+      "Bash(rtk lint *)",
+      "Bash(./node_modules/.bin/eslint src/components/PDVContainer.tsx)",
+      "Bash(./node_modules/.bin/eslint src/app/\\\\\\(pdv\\\\\\)/dashboard/comandas/page.tsx)",
+      "Bash(rtk next *)",
+      "Bash(rtk read *)",
+      "Bash(rtk git *)",
+      "Bash(node *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k,v\\) for k,v in {**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}.items\\(\\) if any\\(x in k for x in ['radix','shadcn','framer','motion','lucide']\\)]\")",
+      "Bash(rtk find *)"
     ]
   }
 }

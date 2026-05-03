@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Lock, Unlock, Loader2, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowDownToLine, ArrowUpFromLine, Lock, Unlock, Loader2, X, MoreVertical } from "lucide-react";
 import { abrirTurno, fecharTurno, registrarMovimentacao } from "@/app/actions/turnos";
 import { useRouter } from "next/navigation";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAberto: boolean, insights?: any, onMessage?: (msg: string, type: 'success' | 'error') => void }) {
   const [modalType, setModalType] = useState<'ABRIR' | 'FECHAR' | 'SANGRIA' | 'REFORCO' | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const [valor, setValor] = useState("");
   const [motivo, setMotivo] = useState("");
@@ -15,6 +18,22 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
   const router = useRouter();
 
   const fmt = (cents: number | null | undefined) => fmtBRL(safeCentavos(cents));
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const openAction = (type: 'ABRIR' | 'FECHAR' | 'SANGRIA' | 'REFORCO') => {
+    setMenuOpen(false);
+    setModalType(type);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,61 +91,72 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
 
   return (
     <>
-      {/* Pílulas de ação rápida */}
-      <div className="flex items-center gap-2">
-        {!isTurnoAberto ? (
-          <button
-            onClick={() => setModalType('ABRIR')}
-            className="
-              flex items-center gap-1.5 px-4 py-2
-              bg-emerald-600 hover:bg-emerald-500
-              text-white text-sm font-semibold rounded-full
-              transition-all duration-150 active:scale-95
-            "
-          >
-            <Unlock size={14} /> Abrir Caixa
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={() => setModalType('SANGRIA')}
-              className="
-                flex items-center gap-1.5 px-3.5 py-2
-                bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/50
-                text-neutral-300 text-sm font-semibold rounded-full
-                transition-all duration-150 active:scale-95
-              "
+      {/* Trigger — ícone único no cabeçalho */}
+      <div ref={menuRef} className="relative">
+        <button
+          onClick={() => setMenuOpen(v => !v)}
+          aria-label="Ações do caixa"
+          aria-expanded={menuOpen}
+          className={`
+            p-2.5 rounded-xl transition-colors duration-150
+            ${menuOpen
+              ? 'bg-white/10 text-neutral-100'
+              : 'hover:bg-white/5 active:bg-white/10 text-neutral-400 hover:text-neutral-200'
+            }
+          `}
+        >
+          <MoreVertical size={18} />
+        </button>
+
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={{ duration: 0.13, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute right-0 top-full mt-2 z-50 min-w-[190px] bg-[#1C2028] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
             >
-              <ArrowUpFromLine size={14} className="text-rose-400" /> Sangria
-            </button>
-            <button
-              onClick={() => setModalType('REFORCO')}
-              className="
-                flex items-center gap-1.5 px-3.5 py-2
-                bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/50
-                text-neutral-300 text-sm font-semibold rounded-full
-                transition-all duration-150 active:scale-95
-              "
-            >
-              <ArrowDownToLine size={14} className="text-emerald-400" /> Reforço
-            </button>
-            <div className="flex-1" />
-            <button
-              onClick={() => setModalType('FECHAR')}
-              className="
-                flex items-center gap-1.5 px-3.5 py-2
-                bg-neutral-800 hover:bg-neutral-700 border border-neutral-700/50
-                text-neutral-100 text-sm font-semibold rounded-full
-                transition-all duration-150 active:scale-95
-              "
-            >
-              <Lock size={14} /> Fechar
-            </button>
-          </>
-        )}
+              {!isTurnoAberto ? (
+                <button
+                  onClick={() => openAction('ABRIR')}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-emerald-400 hover:bg-white/5 transition-colors duration-100"
+                >
+                  <Unlock size={15} />
+                  Abrir Caixa
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => openAction('SANGRIA')}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-neutral-300 hover:bg-white/5 transition-colors duration-100"
+                  >
+                    <ArrowUpFromLine size={15} className="text-rose-400" />
+                    Sangria
+                  </button>
+                  <button
+                    onClick={() => openAction('REFORCO')}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-neutral-300 hover:bg-white/5 transition-colors duration-100"
+                  >
+                    <ArrowDownToLine size={15} className="text-emerald-400" />
+                    Reforço
+                  </button>
+                  <div className="h-px bg-white/[0.06] mx-3" />
+                  <button
+                    onClick={() => openAction('FECHAR')}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-neutral-400 hover:bg-white/5 hover:text-neutral-200 transition-colors duration-100"
+                  >
+                    <Lock size={15} className="text-amber-500/80" />
+                    Fechar Caixa
+                  </button>
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Modal Bottom Sheet */}
+      {/* Modal Bottom Sheet — inalterado */}
       {modalType && (
         <div
           className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/60 backdrop-blur-sm"

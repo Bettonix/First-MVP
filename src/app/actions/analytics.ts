@@ -7,28 +7,47 @@ import { getTenantIdOrRedirect } from "@/lib/auth";
 // Cria instância do Service. Em apps maiores, isso pode vir de Injeção de Dependência
 const analyticsService = new AnalyticsService();
 
-export async function getFullDashboardStats(days: number = 30) {
+function periodToStartDate(period: string): Date {
+  const now = new Date();
+  switch (period) {
+    case 'today': {
+      const d = new Date(now); d.setHours(0, 0, 0, 0); return d;
+    }
+    case '7d': {
+      const d = new Date(now); d.setDate(now.getDate() - 6); d.setHours(0, 0, 0, 0); return d;
+    }
+    case 'month': {
+      return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    }
+    case '30d':
+    default: {
+      const d = new Date(now); d.setDate(now.getDate() - 29); d.setHours(0, 0, 0, 0); return d;
+    }
+  }
+}
+
+export async function getFullDashboardStats(period: string = '30d') {
   const tenantId = await getTenantIdOrRedirect();
 
   const cached = unstable_cache(
-    async (tId: string, d: number) => {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - d);
+    async (tId: string, p: string) => {
+      const startDate = periodToStartDate(p);
 
-      const [revenueByDay, paymentDistribution, periodRevenue, topProducts] = await Promise.all([
-        analyticsService.getRevenueByDay(tId, d),
+      const [periodTotal, revenueByDay, paymentDistribution, periodRevenue, topProducts] = await Promise.all([
+        analyticsService.getPeriodTotal(tId, startDate),
+        analyticsService.getRevenueByDay(tId, startDate),
         analyticsService.getPaymentDistribution(tId, startDate),
         analyticsService.getPeriodRevenue(tId),
         analyticsService.getTopProducts(tId, startDate),
       ]);
 
-      return { revenueByDay, paymentDistribution, periodRevenue, topProducts };
+      return { periodTotal, revenueByDay, paymentDistribution, periodRevenue, topProducts };
     },
-    [`full-dashboard-${tenantId}-${days}`],
+    [`full-dashboard-${tenantId}-${period}`],
     { tags: ['dashboard-stats', `tenant-${tenantId}`], revalidate: 3600 }
   );
 
-  return cached(tenantId, days);
+  return cached(tenantId, period);
 }
 
 export async function getDashboardStats(days: number = 7) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,11 +10,11 @@ import {
   DollarSign, Hash, TrendingUp, Star, LayoutGrid, Clock,
   Package, AlertTriangle, Users, Save, X, CheckCircle2,
   ClipboardList, ShoppingBag, Printer, MessageCircle, Search,
-  Pencil, Trash2, Plus, TableProperties, ToggleLeft, ToggleRight,
+  Pencil, Trash2, Plus, TableProperties, ToggleLeft, ToggleRight, ChevronLeft, RefreshCw,
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
 import { useTabStore, Comanda } from "@/store/useTabStore";
-import { getProdutosPDV, depleteStock, deleteProduto } from "@/app/actions/produtos";
+import { getProdutosPDV, deleteProduto } from "@/app/actions/produtos";
 import { registrarVenda, getHistoricoVendas, type VendaDetalhe } from "@/app/actions/vendas";
 import { getMesasComComanda, abrirComanda, fecharComanda, type MesaComComanda } from "@/app/actions/comandas";
 import { SaleDetailSheet } from "./SaleDetailSheet";
@@ -22,11 +22,28 @@ import { QuickAddSheet, DeleteConfirmModal } from "./QuickAddSheet";
 import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
-import { useState, useEffect, useRef, useOptimistic, useTransition, memo, useCallback } from "react";
+import { useState, useEffect, useRef, useOptimistic, useTransition, memo, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
+// ─── Types ───────────────────────────────────────────────────
+interface ProdutoPDV {
+  id: string;
+  nome: string;
+  precoCentavos: number;
+  precoCustoCentavos: number;
+  categoria: string;
+  estoqueAtual: number;
+  estoqueInicial: number;
+  isFavorito: boolean;
+}
+
+type ProdutoPDVAction =
+  | { type: 'delete'; payload: string }
+  | { type: 'update'; payload: ProdutoPDV }
+  | { type: 'add'; payload: ProdutoPDV };
+
 // ─── Utility Functions ────────────────────────────────────────
-const sanitize = (val: any) => {
+const sanitize = (val: unknown) => {
   if (!val) return 0;
   const cleaned = String(val).replace(/[^0-9.-]+/g, "");
   return parseFloat(cleaned) || 0;
@@ -142,7 +159,7 @@ interface PDVContainerProps {
   };
   lowStockItems: { id: string; nome: string; estoqueAtual: number }[];
   recentSales: RecentSale[];
-  initialProdutos: any[];
+  initialProdutos: ProdutoPDV[];
 }
 
 // ─── Live Clock & Timer Helpers ───────────────────────────────
@@ -215,18 +232,19 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const { data: produtos = initialProdutos, isLoading } = useQuery({
     queryKey: ['produtos-pdv'],
     queryFn: async () => await getProdutosPDV(),
-    initialData: initialProdutos
+    initialData: initialProdutos,
+    staleTime: 5 * 60 * 1000,
   });
 
   const subtotal = subtotalCentavos();
   const total = totalCentavos();
   const [cartOpen, setCartOpen] = useState(false);
-  const [produtosList, setProdutosList] = useState<any[]>(initialProdutos || []);
+  const [produtosList, setProdutosList] = useState<ProdutoPDV[]>(initialProdutos ?? []);
   const [optimisticProdutos, addOptimisticProduto] = useOptimistic(
     produtosList,
-    (state, action: { type: 'update' | 'delete' | 'add', payload: any }) => {
-      if (action.type === 'delete') return state.filter(p => p.id !== action.payload);
-      if (action.type === 'update') return state.map(p => p.id === action.payload.id ? { ...p, ...action.payload } : p);
+    (state: ProdutoPDV[], action: ProdutoPDVAction) => {
+      if (action.type === 'delete') return state.filter((p) => p.id !== action.payload);
+      if (action.type === 'update') return state.map((p) => p.id === action.payload.id ? { ...p, ...action.payload } : p);
       if (action.type === 'add') return [...state, action.payload];
       return state;
     }
@@ -254,17 +272,28 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const [vinculadoAMesa, setVinculadoAMesa]       = useState(false);
   const [mesasPDV, setMesasPDV]                   = useState<MesaComComanda[]>([]);
   const [mesasPDVLoading, setMesasPDVLoading]     = useState(false);
-  const [selectedMesaId, setSelectedMesaId]       = useState("");
-  const [selectedComandaId, setSelectedComandaId] = useState("");
-  const [novaComandaNome, setNovaComandaNome]      = useState("");
+  const [selectedMesaId, setSelectedMesaId]               = useState("");
+  const [selectedComandaId, setSelectedComandaId]         = useState("");
+  const [novaComandaNome, setNovaComandaNome]             = useState("");
+  const [novaComandaConfirmed, setNovaComandaConfirmed]   = useState(false);
+
+  const fetchMesasPDV = useCallback(() => {
+    setMesasPDVLoading(true);
+    return getMesasComComanda()
+      .then((data) => { setMesasPDV(data); })
+      .finally(() => setMesasPDVLoading(false));
+  }, []);
 
   const handleToggleVinculado = (on: boolean) => {
     setVinculadoAMesa(on);
-    if (on && mesasPDV.length === 0) {
-      setMesasPDVLoading(true);
-      getMesasComComanda().then((data) => { setMesasPDV(data); setMesasPDVLoading(false); });
+    if (on) {
+      fetchMesasPDV();
+    } else {
+      setSelectedMesaId("");
+      setSelectedComandaId("");
+      setNovaComandaNome("");
+      setNovaComandaConfirmed(false);
     }
-    if (!on) { setSelectedMesaId(""); setSelectedComandaId(""); setNovaComandaNome(""); }
   };
 
   const resetMesaSelector = () => {
@@ -272,6 +301,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
     setSelectedMesaId("");
     setSelectedComandaId("");
     setNovaComandaNome("");
+    setNovaComandaConfirmed(false);
     setMesasPDV([]);
   };
 
@@ -292,8 +322,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [confirmData, setConfirmData] = useState<{ title: string, message: string, action: () => void } | null>(null);
   const [crudModalOpen, setCrudModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [deletingProduct, setDeletingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<ProdutoPDV | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<ProdutoPDV | null>(null);
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
@@ -308,7 +338,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       await queryClient.cancelQueries({ queryKey: ['produtos-pdv'] });
       const prev = queryClient.getQueryData(['produtos-pdv']);
       queryClient.setQueryData(['produtos-pdv'], (old: unknown) =>
-        Array.isArray(old) ? old.filter((p: any) => p.id !== produtoId) : old
+        Array.isArray(old) ? (old as ProdutoPDV[]).filter((p) => p.id !== produtoId) : old
       );
       setDeletingProduct(null);
       return { prev };
@@ -333,7 +363,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   }, []);
 
   const { register, handleSubmit, watch, formState: { errors }, reset: resetForm, setValue } = useForm<CheckoutForm>({
-    resolver: zodResolver(checkoutSchema) as any,
+    resolver: zodResolver(checkoutSchema) as Resolver<CheckoutForm>,
     defaultValues: { 
       pagamento: 'DINHEIRO',
       valorRecebido: 0,
@@ -346,7 +376,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const valorRecebidoRaw = watch("valorRecebido");
   
   // Financial normalization helper (Cents Rule)
-  const toCents = (val: any) => Math.round(sanitize(val) * 100);
+  const toCents = (val: unknown) => Math.round(sanitize(val) * 100);
 
   const valorRecebido = toCents(valorRecebidoRaw);
   const troco = pagamentoType === 'DINHEIRO' ? Math.max(0, valorRecebido - total) : 0;
@@ -376,7 +406,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       }));
 
       // Base Payload
-      const payload: any = {
+      const payload: {
+        cart: typeof cartSerialized;
+        pagamento: { tipo: string; pixId?: string; pixCentavos: number; dinheiroCentavos: number; cartaoCentavos?: number };
+      } = {
         cart: cartSerialized,
         pagamento: {
           tipo: data.pagamento,
@@ -401,8 +434,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         payload.pagamento.pixId = `MISTO-${Date.now()}`;
       }
 
-      console.log("🚀 Auditoria de Payload (Supabase):", payload);
-
       // Resolve comanda to close (create new if needed)
       let comandaParaFechar: string | null = null;
       if (vinculadoAMesa && selectedMesaId) {
@@ -414,7 +445,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         }
       }
 
-      const res = await registrarVenda(payload);
+      const res = await registrarVenda(payload as unknown as Parameters<typeof registrarVenda>[0]);
 
       if (!res.success) {
         console.error("❌ Erro na Server Action:", res.error);
@@ -448,8 +479,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   });
 
   const onSubmit = (data: CheckoutForm) => {
-    console.log("📝 Form Data Raw:", data);
-    
     if (items.length === 0) return showToast("Carrinho vazio.", 'error');
 
     if (pagamentoType === 'DINHEIRO') {
@@ -525,11 +554,14 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
     setCartOpen(true);
   };
 
-  const filteredProdutos = produtos.filter((p: any) => {
-    const matchesTab = activeTab === "todos" || p.isFavorito;
-    const matchesSearch = p.nome.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  const filteredProdutos = useMemo(
+    () => (produtos as ProdutoPDV[]).filter((p) => {
+      const matchesTab = activeTab === "todos" || p.isFavorito;
+      const matchesSearch = p.nome.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTab && matchesSearch;
+    }),
+    [produtos, activeTab, searchQuery]
+  );
 
   return (
     <div className="h-full w-full bg-[#0B0D11] overflow-hidden text-neutral-100 font-sans md:grid md:grid-cols-[1fr_400px]">
@@ -538,8 +570,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       <div className="h-full flex flex-col overflow-hidden relative z-30">
         
         {/* Header (Fixo no Topo) */}
-        <header className="px-6 py-4 border-b border-white/5 bg-[#0B0D11] flex flex-shrink-0 items-center justify-between">
-          <div className="flex flex-col gap-0.5">
+        <header className="px-6 pt-16 pb-4 md:py-4 border-b border-white/5 bg-[#0B0D11] flex flex-shrink-0 items-center justify-between">
+          <div className="flex flex-col gap-0.5 shrink-0">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black tracking-tighter">{nomeLoja}</h1>
               <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -620,12 +652,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 md:pb-0">
                     {optimisticProdutos
-                      .filter((p: any) => {
+                      .filter((p) => {
                         const matchesSearch = p.nome.toLowerCase().includes(searchQuery.toLowerCase());
                         const matchesTab = activeTab === "todos" || (activeTab === "favoritos" && p.isFavorito);
                         return matchesSearch && matchesTab;
                       })
-                      .map((p: any) => (
+                      .map((p) => (
                         <ProductCard
                           key={p.id}
                           produto={{ id: String(p.id), nome: p.nome, precoCentavos: p.precoCentavos, estoqueAtual: p.estoqueAtual }}
@@ -730,7 +762,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                    <button onClick={() => { setEditingProduct(null); setCrudModalOpen(true); }} className="h-10 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white transition-all active:scale-[0.98] shadow-lg shadow-emerald-600/20"><Plus size={14}/> Novo</button>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                   {produtos.map((p: any) => (
+                   {(produtos as ProdutoPDV[]).map((p) => (
                      <motion.div layout key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-neutral-900/40 border border-white/5 hover:border-white/15 transition-all rounded-2xl p-5 flex flex-col gap-3 relative group">
                         {p.estoqueAtual < 5 && <div className="absolute top-4 right-4 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></div>}
                         <div className="flex items-center gap-3">
@@ -797,13 +829,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       </div>
 
       {/* ─── SIDE PANEL (CARRINHO / CHECKOUT PRO) (COLUNA DIREITA) ─── */}
-      <div className={`fixed inset-0 z-40 md:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
+      <div className={`fixed inset-0 z-[140] md:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
 
       <form
         noValidate
         onSubmit={handleSubmit(onSubmit)}
         className={`
-          fixed bottom-0 inset-x-0 z-50 w-full h-[92dvh] rounded-t-3xl overflow-hidden
+          fixed bottom-0 inset-x-0 z-[150] w-full h-[92dvh] rounded-t-3xl overflow-hidden
           md:static md:inset-auto md:h-full md:rounded-none md:w-auto
           bg-[#0D0F14]
           md:border-l md:border-white/10 flex flex-col
@@ -820,7 +852,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         {/* Glow Decorativo de Fundo */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
         
-        <div className="p-8 border-b border-white/5 flex items-center justify-between relative z-10">
+        <div className="p-6 md:p-8 border-b border-white/5 flex items-center justify-between relative z-10 shrink-0">
           <div className="flex flex-col">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -841,93 +873,218 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
           <button type="button" aria-label="Fechar carrinho" onClick={() => setCartOpen(false)} className="md:hidden w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all"><X size={20}/></button>
         </div>
 
-        {/* ─── Mesa Selector ─────────────────────────────────────── */}
-        {isMounted && (
-          <div className="px-8 py-4 border-b border-white/5 relative z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TableProperties size={13} className="text-neutral-500" />
-                <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Vincular à Mesa</span>
+        {/* ─── SCROLLABLE AREA: Mesa Selector + Items ──────────────── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain relative z-10 scrollbar-hide">
+
+          {/* ─── Mesa Selector (Cascade) ──────────────────────────── */}
+          {isMounted && (
+            <div className="px-6 md:px-8 py-4 border-b border-white/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TableProperties size={13} className="text-neutral-500" />
+                  <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Vincular à Mesa</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label={vinculadoAMesa ? "Desvincular mesa" : "Vincular à mesa"}
+                  onClick={() => handleToggleVinculado(!vinculadoAMesa)}
+                >
+                  {vinculadoAMesa
+                    ? <ToggleRight size={22} className="text-emerald-400" />
+                    : <ToggleLeft size={22} className="text-neutral-600" />}
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label={vinculadoAMesa ? "Desvincular mesa" : "Vincular à mesa"}
-                onClick={() => handleToggleVinculado(!vinculadoAMesa)}
-              >
-                {vinculadoAMesa
-                  ? <ToggleRight size={22} className="text-emerald-400" />
-                  : <ToggleLeft size={22} className="text-neutral-600" />}
-              </button>
-            </div>
 
-            {vinculadoAMesa && (
-              <div className="mt-3 space-y-2">
-                {mesasPDVLoading ? (
-                  <div className="flex items-center gap-2 text-neutral-500 text-xs">
-                    <Loader2 size={12} className="animate-spin" /> Carregando mesas...
-                  </div>
-                ) : (
-                  <>
-                    <select
-                      value={selectedMesaId}
-                      onChange={(e) => { setSelectedMesaId(e.target.value); setSelectedComandaId(""); }}
-                      className="w-full py-2 px-3 rounded-xl text-sm font-semibold outline-none bg-white/5 border border-white/10 text-white"
-                    >
-                      <option value="">Selecionar Mesa...</option>
-                      {mesasPDV.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome}</option>
-                      ))}
-                    </select>
+              {vinculadoAMesa && (() => {
+                const mesaAtual         = mesasPDV.find((m) => m.id === selectedMesaId);
+                const comandaSelecionada = mesaAtual?.comandas.find((c) => c.id === selectedComandaId);
+                const isNova            = selectedComandaId === "__nova__";
+                const isConfirmed       = !!comandaSelecionada || (isNova && novaComandaConfirmed);
 
-                    {selectedMesaId && (() => {
-                      const comandasMesa = mesasPDV.find((m) => m.id === selectedMesaId)?.comandas ?? [];
-                      return (
-                        <select
-                          value={selectedComandaId}
-                          onChange={(e) => setSelectedComandaId(e.target.value)}
-                          className="w-full py-2 px-3 rounded-xl text-sm font-semibold outline-none bg-white/5 border border-white/10 text-white"
+                if (mesasPDVLoading) {
+                  return (
+                    <div className="mt-4 flex items-center gap-2 text-neutral-500 text-xs py-3">
+                      <Loader2 size={14} className="animate-spin" /> Carregando mesas...
+                    </div>
+                  );
+                }
+
+                // ── STEP D: Vinculado ─────────────────────────────────
+                if (isConfirmed && mesaAtual) {
+                  const label = isNova
+                    ? (novaComandaNome.trim() || "Sem nome")
+                    : (comandaSelecionada?.name ?? `Comanda #${selectedComandaId.slice(-4)}`);
+                  return (
+                    <div className="mt-3 flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 rounded-2xl">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] text-emerald-500/80 font-black uppercase tracking-widest">
+                          {isNova ? "Nova Comanda" : "Vinculado"}
+                        </p>
+                        <p className="text-sm text-emerald-300 font-bold truncate">
+                          {mesaAtual.nome} · {label}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedComandaId(""); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
+                        className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all"
+                      >
+                        Trocar
+                      </button>
+                    </div>
+                  );
+                }
+
+                // ── STEP B/C: Comanda List + Nova Inline ──────────────
+                if (mesaAtual) {
+                  const comandasMesa = mesaAtual.comandas;
+                  return (
+                    <div className="mt-3 space-y-2.5">
+                      {/* Mesa header with back button */}
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedMesaId(""); setSelectedComandaId(""); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
+                          className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-emerald-400 transition-colors"
                         >
-                          <option value="">Selecionar Comanda...</option>
-                          {comandasMesa.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name ?? `Comanda #${c.id.slice(-4)}`} — {fmtBRL(c.totalCentavos)}
-                            </option>
-                          ))}
-                          <option value="__nova__">+ Nova Comanda</option>
-                        </select>
-                      );
-                    })()}
+                          <ChevronLeft size={12} /> Voltar
+                        </button>
+                        <p className="text-sm font-black text-neutral-200 tracking-tight">{mesaAtual.nome}</p>
+                      </div>
 
-                    {selectedComandaId === "__nova__" && (
-                      <input
-                        value={novaComandaNome}
-                        onChange={(e) => setNovaComandaNome(e.target.value)}
-                        placeholder="Nome do cliente (opcional)"
-                        className="w-full py-2 px-3 rounded-xl text-sm font-medium outline-none bg-white/5 border border-white/10 text-white placeholder:text-neutral-600"
-                      />
-                    )}
-
-                    {selectedComandaId && selectedComandaId !== "__nova__" && (() => {
-                      const comanda = mesasPDV
-                        .find((m) => m.id === selectedMesaId)
-                        ?.comandas.find((c) => c.id === selectedComandaId);
-                      return comanda ? (
-                        <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                          <p className="text-[10px] text-emerald-300 font-black uppercase tracking-widest truncate">
-                            Vinculado: {comanda.name ?? `Comanda #${comanda.id.slice(-4)}`}
-                          </p>
+                      {/* Nova Comanda Inline Form */}
+                      {isNova && !novaComandaConfirmed ? (
+                        <div className="space-y-2 bg-white/[0.03] border border-white/10 rounded-2xl p-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Nova Comanda</p>
+                          <input
+                            autoFocus
+                            value={novaComandaNome}
+                            onChange={(e) => setNovaComandaNome(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") setNovaComandaConfirmed(true); }}
+                            placeholder="Nome do cliente (opcional)"
+                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-semibold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-600"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedComandaId(""); setNovaComandaNome(""); }}
+                              className="flex-1 h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-bold rounded-xl text-xs"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNovaComandaConfirmed(true)}
+                              className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20"
+                            >
+                              <CheckCircle2 size={13} /> Confirmar
+                            </button>
+                          </div>
                         </div>
-                      ) : null;
-                    })()}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+                      ) : (
+                        <>
+                          {/* Existing comandas */}
+                          {comandasMesa.length > 0 && (
+                            <div className="space-y-1.5">
+                              {comandasMesa.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => setSelectedComandaId(c.id)}
+                                  className="w-full flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-emerald-500/30 rounded-xl px-3.5 py-2.5 transition-all group"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <ClipboardList size={14} className="text-neutral-500 group-hover:text-emerald-400 transition-colors shrink-0" />
+                                    <span className="text-sm font-bold text-neutral-200 truncate">
+                                      {c.name ?? `Comanda #${c.id.slice(-4)}`}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-black tabular-nums text-emerald-400 shrink-0 ml-2">
+                                    {fmtBRL(c.totalCentavos)}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-8 py-8 relative z-10 scrollbar-hide">
+                          {/* + Nova Comanda */}
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedComandaId("__nova__"); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
+                            className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/15 border border-dashed border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 font-black text-xs uppercase tracking-widest rounded-xl px-4 py-3 transition-all"
+                          >
+                            <Plus size={14} /> Nova Comanda
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
+
+                // ── STEP A: Mesa Grid ─────────────────────────────────
+                return (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Selecione a Mesa</p>
+                      <button
+                        type="button"
+                        onClick={() => fetchMesasPDV()}
+                        aria-label="Atualizar mesas"
+                        className="text-neutral-500 hover:text-emerald-400 transition-colors p-1"
+                      >
+                        <RefreshCw size={12} className={mesasPDVLoading ? "animate-spin" : ""} />
+                      </button>
+                    </div>
+                    {mesasPDV.length === 0 ? (
+                      <div className="bg-white/[0.02] border border-dashed border-white/10 rounded-xl py-6 text-center">
+                        <p className="text-xs text-neutral-500 font-semibold">Nenhuma mesa configurada.</p>
+                        <p className="text-[10px] text-neutral-600 mt-1">Cadastre em Configurações → Mesas.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {mesasPDV.map((m) => {
+                          const ocupada = m.comandas.length > 0;
+                          const total = m.comandas.reduce((acc, c) => acc + c.totalCentavos, 0);
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setSelectedMesaId(m.id)}
+                              className={`relative flex flex-col items-start gap-1 rounded-xl px-3 py-2.5 border transition-all text-left
+                                ${ocupada
+                                  ? "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15"
+                                  : "bg-white/[0.03] border-white/10 hover:border-emerald-500/30 hover:bg-white/[0.05]"}`}
+                            >
+                              <div className="flex items-center gap-1.5 w-full">
+                                <div className={`w-1.5 h-1.5 rounded-full ${ocupada ? "bg-emerald-400" : "bg-neutral-600"}`} />
+                                <span className={`text-sm font-black truncate ${ocupada ? "text-emerald-300" : "text-neutral-200"}`}>
+                                  {m.nome}
+                                </span>
+                              </div>
+                              {ocupada ? (
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-wider flex items-center gap-1">
+                                    <Users size={9} /> {m.comandas.length}
+                                  </span>
+                                  <span className="text-[10px] font-black tabular-nums text-emerald-400">{fmtBRL(total)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-[9px] font-bold text-neutral-600 uppercase tracking-wider">Livre</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ─── Items List ─────────────────────────────────────── */}
+          <div className="px-6 md:px-8 py-6">
           <AnimatePresence initial={false}>
             {!isMounted || items.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-center px-6 gap-4 opacity-40">
@@ -977,9 +1134,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
               </ul>
             )}
           </AnimatePresence>
+          </div>
         </div>
 
-        <footer className="p-6 pb-8 md:pb-6 bg-[#0B0D11]/60 backdrop-blur-3xl border-t border-white/5 space-y-4 relative z-10 shrink-0">
+        <footer className="p-6 pb-10 md:pb-6 bg-[#0B0D11]/60 backdrop-blur-3xl border-t border-white/5 space-y-4 relative z-10 shrink-0">
           <div className="flex flex-col gap-1">
             <AnimatePresence>
               {descontoCentavos > 0 && (
@@ -1140,7 +1298,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
       {/* Botão flutuante do carrinho no Mobile */}
       {items.length > 0 && (
-        <button onClick={() => setCartOpen(true)} className="md:hidden fixed bottom-20 left-4 right-4 z-30 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl h-14 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
+        <button onClick={() => setCartOpen(true)} className="md:hidden fixed bottom-[max(calc(env(safe-area-inset-bottom)+72px),5.5rem)] left-4 right-4 z-[110] bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl h-14 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
           <div className="flex items-center gap-3">
             <ShoppingCart size={20} />
             <span className="font-bold text-sm">{isMounted ? items.length : 0} {items.length === 1 ? 'item' : 'itens'}</span>

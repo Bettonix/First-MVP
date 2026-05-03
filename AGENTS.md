@@ -1,33 +1,21 @@
-Diretrizes Globais do Ecossistema (Multi-Agent Context)
-1. Escopo da Aplicação (Application Scope)
-Este repositório contém a base de código de um micro-SaaS focado em. O sistema exige alta confiabilidade e uma estrutura modular.
+Diretrizes Universais para Agentes de IA
+1. Escopo e Arquitetura
+Projeto: Aplicação SaaS.
 
-2. Stack Tecnológica e Arquitetura
-Frontend: Next.js (App Router), React, Tailwind CSS.
+Tech Stack: Next.js, React, Node.js, Supabase (PostgreSQL), Stripe.
 
-Backend e Banco de Dados: Supabase (PostgreSQL).
+Padrão de Código: TypeScript rigoroso (é estritamente proibido o uso de any). Priorize componentes funcionais e modulares.
 
-Faturamento e Assinaturas: Stripe.
+2. Otimização de Terminal (Obrigatório)
+Para preservar nossa janela de contexto e economizar tokens, é ESTRITAMENTE PROIBIDO rodar comandos padrão de terminal que gerem logs extensos. Você deve OBRIGATORIAMENTE usar o prefixo rtk antes das execuções:
 
-Divisão de Trabalho de IA: O Gemini CLI é responsável pela exploração de código, leitura de logs e planejamento. O Claude Code é estritamente encarregado de implementar as refatorações arquiteturais e o código de produção.
+Git: Use rtk git status, rtk git diff e rtk git log. Nunca use os comandos git puros.
 
-3. Padrões de Codificação (Coding Standards)
-TypeScript Rigoroso: É terminantemente proibido o uso do tipo any. Tipagens precisas e interfaces devem ser declaradas para todos os dados.
+Gerenciadores de Pacote: Use rtk npm install ou comandos equivalentes.
 
-Simplicidade e Modularidade: Escreva componentes pequenos e reutilizáveis. Quebre tarefas complexas em etapas lógicas numeradas.
+Testes e Build: Use rtk npm run build ou rtk npm test para garantir que apenas as falhas e os erros sejam reportados na tela.
 
-Resiliência: Trate os erros explicitamente e aplique verificações de nulidade (null checks) de maneira consistente.
+3. Segurança e Banco de Dados
+Todo o acesso aos dados deve respeitar estritamente as políticas de Row Level Security (RLS) do Supabase.
 
-4. Segurança e Manipulação de Dados (Crucial)
-Segurança de Banco de Dados: O acesso aos dados deve ser governado inteiramente pelas regras de Row Level Security (RLS) do Supabase.
-
-Permissões: Nunca crie, remova ou altere tabelas de banco de dados, regras de autenticação (Auth) ou lógicas de pagamento (Stripe) sem a permissão expressa do usuário humano.
-
-O código deve estar blindado contra injeções SQL e falhas de Cross-Site Scripting (XSS).
-
-5. Protocolo de Integração Contínua e Ferramentas (MCP)
-Para ler esquemas de banco de dados diretamente, utilize o servidor MCP do Supabase conectado ao ambiente.
-
-Se a documentação de uma biblioteca estiver ausente ou desatualizada, acione o servidor MCP de busca (como o Brave Search ou Context7) para validar os padrões de implementação antes de escrever o código.
-
-Todas as execuções de testes automatizados devem ser finalizadas e ter seus logs analisados com sucesso antes de sugerir que a tarefa está "concluída".
+Nenhuma alteração estrutural no banco de dados ou nas integrações de pagamento (Stripe) deve ser feita sem a confirmação explícita do desenvolvedor.

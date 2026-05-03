@@ -77,7 +77,7 @@ export async function getProdutosPDV() {
     orderBy: { nome: 'asc' }
   });
 
-  return produtos.map((p: any) => ({
+  return produtos.map((p) => ({
     id: p.id.toString(),
     nome: p.nome,
     precoCentavos: p.precoCentavos,

@@ -47,12 +47,20 @@ export class AnalyticsService {
     }));
   }
 
-  /** Faturamento diário dos últimos N dias */
-  async getRevenueByDay(tenantId: string, days: number) {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
-    startDate.setHours(0, 0, 0, 0);
+  /** Faturamento total do período [startDate, endDate] */
+  async getPeriodTotal(tenantId: string, startDate: Date, endDate?: Date) {
+    const end = endDate ?? new Date();
+    const rawData = await prisma.$queryRaw`
+      SELECT CAST(COALESCE(SUM("totalCentavos"), 0) AS BIGINT) as total
+      FROM "Venda"
+      WHERE tenant_id = ${tenantId} AND "criadoEm" >= ${startDate} AND "criadoEm" <= ${end};
+    `;
+    const row = (rawData as any[])[0];
+    return Number(row?.total ?? 0);
+  }
 
+  /** Faturamento diário desde startDate até hoje */
+  async getRevenueByDay(tenantId: string, startDate: Date) {
     const rawData = await prisma.$queryRaw`
       SELECT
         date_trunc('day', "criadoEm") as day,

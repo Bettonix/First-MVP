@@ -11,8 +11,18 @@ import { getProdutosPDV } from "@/app/actions/produtos";
 import {
   ClipboardList, Plus, Loader2, X, Check, Trash2,
   ShoppingBag, Timer, ChevronRight, Search, ChevronLeft,
-  Users,
+  Users, Banknote, QrCode, CreditCard, LayoutGrid,
 } from "lucide-react";
+
+// ─── Payment Methods ──────────────────────────────────────────────────────────
+const PAYMENT_METHODS = [
+  { value: 'DINHEIRO' as const, label: 'Dinheiro', icon: Banknote },
+  { value: 'PIX'      as const, label: 'Pix',      icon: QrCode },
+  { value: 'CARTAO'   as const, label: 'Cartão',   icon: CreditCard },
+  { value: 'MISTO'    as const, label: 'Misto',    icon: LayoutGrid },
+] as const;
+
+type MetodoPagamento = typeof PAYMENT_METHODS[number]['value'];
 import { fmtBRL } from "@/lib/currency";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -91,6 +101,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [confirmFechar, setConfirmFechar] = useState(false);
+  const [metodoPagamento, setMetodoPagamento] = useState<MetodoPagamento | null>(null);
   const [novaComandaNome, setNovaComandaNome] = useState("");
   const [criandoNova, setCriandoNova] = useState(false);
 
@@ -147,9 +158,24 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
       const result = await abrirComanda(mesa.id, name);
       setCriandoNova(false);
       if ("error" in result) { setError(result.error); return; }
-      await onRefresh();
-      // auto-select the new comanda
+
+      // Set selectedComanda immediately with stub data so detail view renders.
+      // The useEffect on mesa.comandas will replace this with the persisted record once onRefresh completes.
+      const stub: ComandaComMesa = {
+        id: result.id,
+        mesaId: mesa.id,
+        mesaNome: mesa.nome,
+        name: name?.trim() || null,
+        status: "ABERTA",
+        totalCentavos: 0,
+        itens: [],
+        abertaEm: new Date().toISOString(),
+        fechadaEm: null,
+      };
+      setSelectedComanda(stub);
       setView("detail");
+      setNovaComandaNome("");
+      onRefresh();
     });
   };
 
@@ -394,19 +420,48 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
             </div>
 
             {/* Footer actions */}
-            <div className="p-6 border-t dash-border space-y-3 shrink-0">
+            <div className="px-6 pt-6 pb-[max(env(safe-area-inset-bottom),1.5rem)] border-t dash-border space-y-3 shrink-0">
               <div className="flex items-center justify-between">
                 <p className="dash-subtitle text-sm font-bold">Total</p>
                 <p className="dash-title text-2xl font-black tabular-nums">{fmtBRL(selectedComanda.totalCentavos)}</p>
               </div>
 
               {confirmFechar ? (
-                <div className="space-y-2">
-                  <p className="dash-subtitle text-xs font-semibold text-center">Confirmar fechamento da conta?</p>
+                <div className="space-y-3">
+                  {/* Premium payment selector */}
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500 text-center">Forma de Pagamento</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {PAYMENT_METHODS.map((m) => (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setMetodoPagamento(m.value)}
+                        className={`
+                          flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-200
+                          ${metodoPagamento === m.value
+                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_5px_20px_rgba(16,185,129,0.1)] scale-[1.02]'
+                            : 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60 hover:opacity-100 hover:border-white/10'}
+                        `}
+                      >
+                        <m.icon size={18} />
+                        <span className="text-[8px] font-black mt-1.5 uppercase tracking-[0.1em]">{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setConfirmFechar(false)} className="flex-1 h-11 dash-nav-btn font-bold rounded-xl text-sm">Voltar</button>
-                    <button onClick={handleFechar} disabled={isPending} className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm">
-                      {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Fechar Conta
+                    <button
+                      onClick={() => { setConfirmFechar(false); setMetodoPagamento(null); }}
+                      className="flex-1 h-11 dash-nav-btn font-bold rounded-xl text-sm"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      onClick={handleFechar}
+                      disabled={isPending || !metodoPagamento}
+                      className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20"
+                    >
+                      {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                      {metodoPagamento ? `Receber · ${metodoPagamento}` : 'Selecione...'}
                     </button>
                   </div>
                 </div>
@@ -424,15 +479,19 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                     <button onClick={handleCancelar} disabled={isPending} className="h-11 px-4 dash-action-btn-danger border rounded-xl font-bold text-sm flex items-center gap-1.5 transition-all">
                       <Trash2 size={15} /> Cancelar
                     </button>
-                    <button onClick={() => setConfirmFechar(true)} disabled={isPending} className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20">
+                    <button
+                      onClick={() => { setConfirmFechar(true); setMetodoPagamento(null); }}
+                      disabled={isPending}
+                      className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20"
+                    >
                       <Check size={16} /> Fechar Conta
                     </button>
                   </div>
                 </>
               )}
 
-              {/* Nova Comanda link when in detail view with multiple comandas */}
-              {mesa.comandas.length >= 1 && (
+              {/* Nova Comanda link when in detail view */}
+              {!confirmFechar && mesa.comandas.length >= 1 && (
                 <button
                   onClick={() => setView("nova")}
                   className="w-full text-xs font-bold dash-subtitle hover:text-emerald-400 flex items-center justify-center gap-1 transition-colors py-1"

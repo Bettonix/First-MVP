@@ -1,10 +1,17 @@
 import { Suspense } from "react";
 import { getFullDashboardStats } from "@/app/actions/analytics";
-import { RevenueChart } from "@/components/RevenueChart";
-import { PaymentDistributionCard } from "@/components/PaymentDistributionCard";
+import { RevenueChart, PaymentDistributionCard } from "@/components/DashboardCharts";
+import { PeriodSelector } from "@/components/PeriodSelector";
 import { Package } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+const PERIOD_LABELS: Record<string, string> = {
+  today: "Hoje",
+  "7d": "Últimos 7 Dias",
+  "30d": "Últimos 30 Dias",
+  month: "Este Mês",
+};
 
 function fmtBRL(centavos: number) {
   return (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -20,27 +27,52 @@ function KpiCard({ title, value, accent }: { title: string; value: string; accen
   );
 }
 
-async function DashboardContent() {
-  const stats = await getFullDashboardStats(30);
-  const { periodRevenue, revenueByDay, paymentDistribution, topProducts } = stats;
+type Stats = Awaited<ReturnType<typeof getFullDashboardStats>>;
+
+function buildKpis(period: string, stats: Stats) {
+  const { periodTotal, periodRevenue } = stats;
+  const label = PERIOD_LABELS[period] ?? "Últimos 30 Dias";
+
+  const primaryValue =
+    period === "today"  ? periodRevenue.hoje   :
+    period === "7d"     ? periodRevenue.semana  :
+    period === "month"  ? periodRevenue.mes     :
+    periodTotal;
+
+  const kpi1 = { title: label,              value: fmtBRL(primaryValue),        accent: "text-emerald-500" };
+  const kpi2 = period === "today"
+    ? { title: "Últimos 7 Dias",   value: fmtBRL(periodRevenue.semana), accent: "text-blue-500" }
+    : { title: "Faturamento Hoje", value: fmtBRL(periodRevenue.hoje),   accent: "text-blue-500" };
+  const kpi3 = period === "month"
+    ? { title: "Últimos 7 Dias", value: fmtBRL(periodRevenue.semana), accent: "text-violet-500" }
+    : { title: "Este Mês",       value: fmtBRL(periodRevenue.mes),    accent: "text-violet-500" };
+
+  return [kpi1, kpi2, kpi3];
+}
+
+async function DashboardContent({ period }: { period: string }) {
+  const stats = await getFullDashboardStats(period);
+  const { revenueByDay, paymentDistribution, topProducts } = stats;
+  const kpis = buildKpis(period, stats);
+  const label = PERIOD_LABELS[period] ?? "Período";
 
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard title="Faturamento Hoje"   value={fmtBRL(periodRevenue.hoje)}   accent="text-emerald-500" />
-        <KpiCard title="Últimos 7 dias"     value={fmtBRL(periodRevenue.semana)} accent="text-blue-500" />
-        <KpiCard title="Este Mês"           value={fmtBRL(periodRevenue.mes)}    accent="text-violet-500" />
+        {kpis.map((kpi) => (
+          <KpiCard key={kpi.title} title={kpi.title} value={kpi.value} accent={kpi.accent} />
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 dash-card rounded-3xl p-6 min-w-0">
-          <h2 className="dash-title text-lg font-bold">Faturamento Diário — últimos 30 dias</h2>
+          <h2 className="dash-title text-lg font-bold">Faturamento Diário — {label}</h2>
           <p className="dash-subtitle text-sm font-medium mb-2">Evolução da receita bruta por dia.</p>
           <RevenueChart data={revenueByDay} />
         </div>
         <div className="dash-card rounded-3xl p-6 min-w-0">
           <h2 className="dash-title text-lg font-bold">Distribuição de Pagamento</h2>
-          <p className="dash-subtitle text-sm font-medium mb-4">Por método (últimos 30 dias).</p>
+          <p className="dash-subtitle text-sm font-medium mb-4">{label}.</p>
           <PaymentDistributionCard data={paymentDistribution} />
         </div>
       </div>
@@ -48,7 +80,7 @@ async function DashboardContent() {
       <div className="dash-card rounded-3xl p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="dash-title text-lg font-bold">Top 10 — Mais Vendidos (30 dias)</h2>
+            <h2 className="dash-title text-lg font-bold">Top 10 — Mais Vendidos ({label})</h2>
             <p className="dash-subtitle text-sm font-medium">Ranking por receita gerada.</p>
           </div>
           <span className="dash-badge text-xs font-bold px-3 py-1.5 rounded-full">{topProducts.length} produtos</span>
@@ -106,17 +138,26 @@ function DashboardSkeleton() {
   );
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const { period = "30d" } = await searchParams;
+  const validPeriods = ["today", "7d", "30d", "month"];
+  const safePeriod = validPeriods.includes(period) ? period : "30d";
+
   return (
     <div className="dash-page p-4 md:p-8 max-w-7xl mx-auto space-y-6 pb-16">
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
         <div>
           <h1 className="dash-title text-3xl font-black tracking-tight">Dashboard</h1>
           <p className="dash-subtitle font-medium text-sm">Inteligência de negócio em tempo real.</p>
         </div>
+        <PeriodSelector />
       </div>
-      <Suspense fallback={<DashboardSkeleton />}>
-        <DashboardContent />
+      <Suspense key={safePeriod} fallback={<DashboardSkeleton />}>
+        <DashboardContent period={safePeriod} />
       </Suspense>
     </div>
   );

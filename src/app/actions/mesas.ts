@@ -35,7 +35,8 @@ export async function criarMesasEmLote(quantidade: number, prefixo: string) {
     nome: `${prefixo.trim()} ${String(i + 1).padStart(2, "0")}`,
   }));
   await prisma.mesa.createMany({ data });
-  revalidatePath("/dashboard/mesas");
+  revalidatePath("/settings");
+  revalidatePath("/dashboard/comandas");
   return { success: true };
 }
 
@@ -45,7 +46,8 @@ export async function updateMesa(id: string, nome: string) {
     where: { id: BigInt(id), tenantId },
     data: { nome },
   });
-  revalidatePath("/dashboard/mesas");
+  revalidatePath("/settings");
+  revalidatePath("/dashboard/comandas");
   return { success: true };
 }
 
@@ -55,20 +57,23 @@ export async function toggleMesa(id: string, ativa: boolean) {
     where: { id: BigInt(id), tenantId },
     data: { ativa },
   });
-  revalidatePath("/dashboard/mesas");
+  revalidatePath("/settings");
+  revalidatePath("/dashboard/comandas");
   return { success: true };
 }
 
 export async function deleteMesa(id: string) {
   const tenantId = await getTenantIdOrRedirect();
   await prisma.mesa.deleteMany({ where: { id: BigInt(id), tenantId } });
-  revalidatePath("/dashboard/mesas");
+  revalidatePath("/settings");
+  revalidatePath("/dashboard/comandas");
   return { success: true };
 }
 
 export async function deleteTodasMesas() {
   const tenantId = await getTenantIdOrRedirect();
   await prisma.mesa.deleteMany({ where: { tenantId } });
-  revalidatePath("/dashboard/mesas");
+  revalidatePath("/settings");
+  revalidatePath("/dashboard/comandas");
   return { success: true };
 }
