@@ -59,7 +59,6 @@ export function AppSidebar() {
       clearCart();
       await signOut();
       router.push("/login");
-      router.refresh();
     });
   };
 

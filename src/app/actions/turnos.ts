@@ -54,7 +54,6 @@ export async function registrarMovimentacao(data: z.infer<typeof movimentacaoSch
     }
   });
 
-  revalidatePath("/");
   return { success: true };
 }
 

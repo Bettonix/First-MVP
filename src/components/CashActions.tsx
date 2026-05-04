@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, Lock, Unlock, Loader2, X, MoreVertical } from "lucide-react";
 import { abrirTurno, fecharTurno, registrarMovimentacao } from "@/app/actions/turnos";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
   const [valor, setValor] = useState("");
   const [motivo, setMotivo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [, startTransition] = useTransition();
   const router = useRouter();
 
   const fmt = (cents: number | null | undefined) => fmtBRL(safeCentavos(cents));
@@ -64,7 +65,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
       }
 
       if (modalType === 'ABRIR' || modalType === 'FECHAR') {
-        router.refresh();
+        startTransition(() => router.refresh());
       }
 
       setModalType(null);

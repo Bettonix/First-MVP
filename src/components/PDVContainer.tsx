@@ -461,9 +461,17 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
     onSuccess: async () => {
       setLastSaleTotal(total);
       setLastSaleItems([...items]);
-      
-      // Invalida a query para obter o estoque atualizado do servidor
-      queryClient.invalidateQueries({ queryKey: ['produtos-pdv'] });
+
+      // Atualiza o estoque localmente sem round-trip ao servidor
+      const soldItems = [...items];
+      queryClient.setQueryData(['produtos-pdv'], (old: ProdutoPDV[] | undefined) => {
+        if (!old) return old;
+        return old.map(p => {
+          const sold = soldItems.find(i => i.produtoId === p.id);
+          if (!sold) return p;
+          return { ...p, estoqueAtual: Math.max(0, p.estoqueAtual - sold.quantidade) };
+        });
+      });
 
       if (activeComandaId) closeComanda(activeComandaId);
       resetMesaSelector();
