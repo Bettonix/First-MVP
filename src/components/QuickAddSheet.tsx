@@ -30,7 +30,7 @@ export function QuickAddButton({ onClick }: { onClick: () => void }) {
       className="
         h-12 px-5 rounded-xl font-black text-sm uppercase tracking-widest
         flex items-center justify-center gap-2
-        bg-emerald-600 hover:bg-emerald-500 text-white
+        bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] text-white
         transition-all duration-150 active:scale-[0.98]
         shadow-lg shadow-emerald-600/20
       "
@@ -195,7 +195,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
           className="
             h-12 px-5 rounded-xl font-black text-sm uppercase tracking-widest
             flex items-center justify-center gap-2
-            bg-emerald-600 hover:bg-emerald-500 text-white
+            bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] text-white
             transition-all duration-150 active:scale-[0.98]
             shadow-lg shadow-emerald-600/20
           "
@@ -212,7 +212,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={close}
             />
             <motion.div
@@ -220,14 +220,14 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-[#13161A] w-full max-w-lg p-8 rounded-[32px] border border-white/10 relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90vh] overflow-y-auto"
+              className="dash-card w-full max-w-lg p-8 rounded-[32px] border dash-border relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-8">
                 <div className="flex flex-col">
-                  <h2 className="text-2xl font-black tracking-tighter text-white">
+                  <h2 className="text-2xl font-black tracking-tighter dash-title">
                     {editProduct ? "Editar Produto" : "Novo Produto"}
                   </h2>
-                  <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">
+                  <p className="text-[10px] font-bold dash-label uppercase tracking-widest mt-1">
                     {editProduct ? "Ajuste os detalhes abaixo" : "Preencha para cadastrar"}
                   </p>
                 </div>
@@ -295,7 +295,7 @@ export function DeleteConfirmModal({ product, onConfirm, onCancel, isPending }: 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onCancel}
       />
       <motion.div

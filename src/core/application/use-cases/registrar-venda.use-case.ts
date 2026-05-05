@@ -1,9 +1,14 @@
-import { IVendaRepository, CartItem, MetodoPagamento, VendaResult } from '../../domain/repositories/ivenda.repository';
+import {
+  IVendaRepository,
+  CartItem,
+  SplitPagamento,
+  VendaResult,
+} from '../../domain/repositories/ivenda.repository';
 
 export interface RegistrarVendaInput {
   tenantId: string;
   cart: CartItem[];
-  pagamento: MetodoPagamento;
+  pagamentos: SplitPagamento[];
 }
 
 export class RegistrarVendaUseCase {
@@ -11,19 +16,15 @@ export class RegistrarVendaUseCase {
 
   async execute(input: RegistrarVendaInput): Promise<VendaResult> {
     if (input.cart.length === 0) {
-      throw new Error('O carrinho de compras não pode estar vazio.');
+      throw new Error('O carrinho não pode estar vazio.');
     }
-
-    if (input.pagamento.tipo === 'PIX' && !input.pagamento.pixId) {
-      throw new Error('Transações PIX exigem um ID de transação.');
+    if (input.pagamentos.length === 0) {
+      throw new Error('Pelo menos um pagamento é obrigatório.');
     }
-
-    // A regra de negócio atômica e o decremento do estoque 
-    // são encapsulados pelo repositório para evitar data-races.
     return this.vendaRepository.registrarVenda(
       input.tenantId,
       input.cart,
-      input.pagamento
+      input.pagamentos
     );
   }
 }

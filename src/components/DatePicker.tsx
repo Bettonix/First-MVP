@@ -63,9 +63,9 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
           onClick={() => handleDateSelect(day)}
           className={`
             h-10 w-10 rounded-xl text-sm font-bold transition-all flex items-center justify-center
-            ${isSelected ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 
+            ${isSelected ? 'bg-[var(--brasa)] text-white' : 
               isToday ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
-              'hover:bg-white/5 text-neutral-400 hover:text-neutral-200'}
+              'dash-pill-inactive hover:dash-value'}
           `}
         >
           {day}
@@ -80,10 +80,10 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/5 hover:border-white/10 rounded-xl transition-all group"
+        className="flex items-center gap-2 px-4 py-2 dash-muted border dash-border hover:border-[var(--border-md)] rounded-xl transition-all group"
       >
-        <CalendarIcon size={14} className="text-neutral-500 group-hover:text-emerald-400 transition-colors" />
-        <span className="text-xs font-black uppercase tracking-widest text-neutral-400 group-hover:text-neutral-200 transition-colors">
+        <CalendarIcon size={14} className="dash-label group-hover:dash-highlight-text transition-colors" />
+        <span className="text-xs font-black uppercase tracking-widest dash-label group-hover:dash-value transition-colors">
           {selectedDate.toLocaleDateString('pt-BR')}
         </span>
       </button>
@@ -96,7 +96,7 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-[150] bg-black/40 backdrop-blur-sm"
               onClick={() => setIsOpen(false)}
             />
 

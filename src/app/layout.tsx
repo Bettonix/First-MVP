@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 
-import { cookies } from "next/headers";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -27,18 +27,14 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const theme = cookieStore.get('accessibility_settings')?.value || 'dark';
-  const themeClass = theme === 'sunlight' ? 'sunlight-mode' : '';
-
   return (
-    <html lang="pt-BR" className={themeClass}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased ${themeClass}`}>
+    <html lang="pt-BR">
+      <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         <QueryProvider>
           {children}
         </QueryProvider>

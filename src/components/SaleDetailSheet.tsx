@@ -20,7 +20,7 @@ function MetodoBadge({ metodo }: { metodo: string }) {
     DINHEIRO: { icon: <Banknote  size={14} />, cls: "bg-blue-500/10    text-blue-400    border-blue-500/20" },
     MISTO:    { icon: <CreditCard size={14} />, cls: "bg-amber-500/10   text-amber-400   border-amber-500/20" },
   };
-  const { icon, cls } = map[metodo] ?? { icon: null, cls: "bg-white/5 text-neutral-400 border-white/10" };
+  const { icon, cls } = map[metodo] ?? { icon: null, cls: "dash-muted dash-label border dash-border" };
   return (
     <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold uppercase tracking-wide ${cls}`}>
       {icon} {metodo}
@@ -47,31 +47,31 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
       {/* Overlay */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9000] transition-opacity"
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9000] transition-opacity"
         onClick={onClose}
       />
 
       {/* Panel */}
       <div className="fixed right-0 top-0 bottom-0 w-full max-w-md z-[9001] flex flex-col
-        bg-[#13161A] border-l border-white/10 shadow-2xl
+        dash-card border-l dash-border shadow-2xl
         animate-in slide-in-from-right duration-300"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+        <div className="flex items-center justify-between px-6 py-5 border-b dash-border">
           <div>
-            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Detalhes da Venda</p>
+            <p className="text-xs font-bold dash-label uppercase tracking-widest">Detalhes da Venda</p>
             <h2 className="text-xl font-black text-neutral-100 mt-0.5">Venda #{sale.id.slice(-6)}</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-neutral-400 hover:text-neutral-200 transition-colors"
+            className="w-9 h-9 rounded-xl dash-action-btn flex items-center justify-center transition-colors"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Meta */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5">
+        <div className="flex items-center gap-3 px-6 py-4 border-b dash-border">
           <MetodoBadge metodo={sale.metodoPagto} />
           <span className="text-xs text-neutral-500 font-semibold">
             {new Date(sale.criadoEm).toLocaleString("pt-BR", {
@@ -83,7 +83,7 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
 
         {/* Items list */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+          <p className="text-xs font-bold dash-label uppercase tracking-widest mb-3 flex items-center gap-2">
             <ShoppingBag size={12} /> Itens ({sale.itens.length})
           </p>
           {sale.itens.map((item, i) => (

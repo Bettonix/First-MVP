@@ -8,9 +8,9 @@ interface PaymentDistributionCardProps {
 }
 
 const COLORS: Record<string, string> = {
-  PIX:      "#10b981",
-  DINHEIRO: "#3b82f6",
-  MISTO:    "#f59e0b",
+  PIX:      "#D35400",  /* brasa — laranja queimado */
+  DINHEIRO: "#5C6B3A",  /* oliva — verde ervas */
+  MISTO:    "#B7791F",  /* mel — âmbar */
 };
 const DEFAULT_COLOR = "#94a3b8";
 
@@ -38,19 +38,21 @@ export function PaymentDistributionCard({ data }: PaymentDistributionCardProps) 
   return (
     <div className="flex flex-col gap-4">
       {/* Destaque — método mais usado */}
-      <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-        <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+      <div className="flex items-center gap-3 rounded-2xl p-4"
+        style={{ backgroundColor: "var(--brasa-light)", border: "1px solid var(--brasa-border)", borderTop: "2px solid var(--brasa)" }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ backgroundColor: "rgba(211,84,0,0.12)", color: "var(--brasa)" }}>
           <MetodoIcon metodo={best.metodo} />
         </div>
         <div>
-          <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Método mais usado</p>
-          <p className="font-black text-emerald-900 text-lg">{best.metodo}</p>
+          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--brasa-hover)" }}>Método mais usado</p>
+          <p className="font-black text-lg" style={{ color: "var(--ink)" }}>{best.metodo}</p>
         </div>
         <div className="ml-auto text-right">
-          <p className="font-black text-emerald-600">
+          <p className="font-black" style={{ color: "var(--brasa)" }}>
             {(best.totalCentavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
           </p>
-          <p className="text-xs text-emerald-500 font-semibold">
+          <p className="text-xs font-semibold" style={{ color: "var(--ink-3)" }}>
             {total > 0 ? ((best.totalCentavos / total) * 100).toFixed(0) : 0}% do total
           </p>
         </div>
@@ -79,9 +81,9 @@ export function PaymentDistributionCard({ data }: PaymentDistributionCardProps) 
                 content={({ active, payload }) => {
                   if (active && payload?.length) {
                     return (
-                      <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200 shadow-lg">
-                        <p className="text-slate-600 font-bold text-xs">{payload[0].name}</p>
-                        <p className="text-slate-900 font-black text-sm">
+                      <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(45,45,45,0.12)", boxShadow: "0 4px 12px rgba(45,45,45,0.1)" }} className="p-2.5 rounded-xl">
+                        <p style={{ color: "var(--ink-3)" }} className="font-bold text-xs">{payload[0].name}</p>
+                        <p style={{ color: "var(--ink)" }} className="font-black text-sm">
                           {Number(payload[0].value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                         </p>
                       </div>
@@ -102,8 +104,8 @@ export function PaymentDistributionCard({ data }: PaymentDistributionCardProps) 
             return (
               <div key={d.metodo} className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-slate-700 font-semibold text-sm flex-1 truncate">{d.metodo}</span>
-                <span className="text-slate-500 text-xs font-bold">{pct.toFixed(0)}%</span>
+                <span style={{ color: "var(--ink-2)" }} className="font-semibold text-sm flex-1 truncate">{d.metodo}</span>
+                <span style={{ color: "var(--ink-4)" }} className="text-xs font-bold">{pct.toFixed(0)}%</span>
               </div>
             );
           })}

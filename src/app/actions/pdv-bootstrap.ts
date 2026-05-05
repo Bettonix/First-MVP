@@ -17,7 +17,7 @@ export async function getPDVBootstrapData() {
     // Nome da loja
     prisma.vendedor.findUnique({
       where: { id: tenantId },
-      select: { nomeLoja: true },
+      select: { nomeLoja: true, instagramUrl: true },
     }),
 
     // Turno ativo (com movimentações para o cálculo do cofre)
@@ -56,10 +56,11 @@ export async function getPDVBootstrapData() {
       take: 10,
     }),
 
-    // Todos os produtos para o PDV
+    // Todos os produtos para o PDV (favoritos primeiro, limite de segurança)
     prisma.produto.findMany({
       where: { tenantId },
-      orderBy: { nome: 'asc' }
+      orderBy: [{ isFavorito: 'desc' }, { nome: 'asc' }],
+      take: 300,
     }),
   ]);
 
@@ -84,6 +85,7 @@ export async function getPDVBootstrapData() {
 
   return {
     nomeLoja: vendedor?.nomeLoja ?? "Meu PDV",
+    instagramUrl: vendedor?.instagramUrl ?? "",
     isTurnoAberto: !!turno,
     insights: {
       totalHojeCentavos,

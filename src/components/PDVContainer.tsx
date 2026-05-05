@@ -7,9 +7,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ShoppingCart, Banknote, QrCode, CreditCard,
   Loader2, Lock, Minus, ChevronUp,
-  DollarSign, Hash, TrendingUp, Star, LayoutGrid, Clock,
+  DollarSign, Hash, TrendingUp, Star, Clock,
   Package, AlertTriangle, Users, Save, X, CheckCircle2,
-  ClipboardList, ShoppingBag, Printer, MessageCircle, Search,
+  ClipboardList, ShoppingBag, Printer, Search,
   Pencil, Trash2, Plus, TableProperties, ToggleLeft, ToggleRight, ChevronLeft, RefreshCw,
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
@@ -23,7 +23,10 @@ import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { useState, useEffect, useRef, useOptimistic, useTransition, memo, useCallback, useMemo } from "react";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import type { UserRole } from "@/lib/auth";
+import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
+import { useSensoryFeedback } from "@/hooks/useSensoryFeedback";
+import { ReceiptModal, type ReceiptData } from "@/components/Receipt";
 
 // ─── Types ───────────────────────────────────────────────────
 interface ProdutoPDV {
@@ -62,7 +65,7 @@ function Toast({ message, type, onClose }: { message: string, type: 'success' | 
       animate={{ opacity: 1, y: 0, x: '-50%' }}
       exit={{ opacity: 0, y: -20, x: '-50%' }}
       className={`fixed top-6 left-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-xl ${
-        type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+        type === 'success' ? 'dash-icon-accent border-[var(--brasa-border)] dash-highlight-text' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
       }`}
     >
       {type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
@@ -78,12 +81,12 @@ function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: { isOpen
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-sm p-8 rounded-3xl border border-white/10 relative shadow-2xl flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto">
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="dash-card w-full max-w-sm p-8 rounded-3xl border dash-border relative shadow-2xl flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto">
         <h3 className="text-lg font-black mb-2">{title}</h3>
-        <p className="text-neutral-400 text-sm mb-6">{message}</p>
+        <p className="dash-label text-sm mb-6">{message}</p>
         <div className="w-full flex gap-3">
-          <button onClick={onCancel} className="flex-1 h-12 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-sm">Voltar</button>
-          <button onClick={onConfirm} className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-sm">Confirmar</button>
+          <button onClick={onCancel} className="flex-1 h-12 dash-muted hover:dash-muted rounded-xl font-bold text-sm">Voltar</button>
+          <button onClick={onConfirm} className="flex-1 h-12 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] rounded-xl font-bold text-sm">Confirmar</button>
         </div>
       </motion.div>
     </div>
@@ -94,10 +97,7 @@ function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: { isOpen
 // ─── Schemas & Helpers ─────────────────────────────────────────
 
 const checkoutSchema = z.object({
-  pagamento: z.enum(['PIX', 'DINHEIRO', 'CARTAO', 'MISTO']),
-  valorRecebido: z.coerce.number().min(0).default(0),
-  valorPix: z.coerce.number().min(0).default(0),
-  valorDinheiro: z.coerce.number().min(0).default(0),
+  pagamento: z.enum(['PIX', 'DINHEIRO', 'CARTAO_CREDITO', 'CARTAO_DEBITO']),
 });
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
@@ -125,7 +125,7 @@ function DiscountModal({ isOpen, onApply, onCancel }: { isOpen: boolean, onApply
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-sm p-8 rounded-[32px] border border-white/10 relative shadow-2xl">
+      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="dash-card w-full max-w-sm p-8 rounded-[32px] border dash-border relative shadow-2xl">
         <h3 className="text-lg font-black mb-4 text-center">Aplicar Desconto</h3>
         <div className="flex flex-col gap-4">
           <input
@@ -136,11 +136,11 @@ function DiscountModal({ isOpen, onApply, onCancel }: { isOpen: boolean, onApply
             value={val}
             onChange={(e) => setVal(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { onApply(Math.round(Number(val.replace(',','.')) * 100)); setVal(""); } }}
-            className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-2xl font-black text-center focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"
+            className="w-full h-14 dash-muted border dash-border rounded-2xl px-6 text-2xl font-black text-center focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:dash-subtitle"
           />
           <div className="flex gap-3">
-            <button onClick={onCancel} className="flex-1 h-12 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-sm">Cancelar</button>
-            <button onClick={() => { onApply(Math.round(Number(val.replace(',','.')) * 100)); setVal(""); }} className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-sm">Aplicar</button>
+            <button onClick={onCancel} className="flex-1 h-12 dash-muted hover:dash-muted rounded-xl font-bold text-sm">Cancelar</button>
+            <button onClick={() => { onApply(Math.round(Number(val.replace(',','.')) * 100)); setVal(""); }} className="flex-1 h-12 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] rounded-xl font-bold text-sm">Aplicar</button>
           </div>
         </div>
       </motion.div>
@@ -151,6 +151,7 @@ function DiscountModal({ isOpen, onApply, onCancel }: { isOpen: boolean, onApply
 interface PDVContainerProps {
   isTurnoAberto: boolean;
   nomeLoja: string;
+  instagramUrl?: string;
   insights: {
     totalHojeCentavos: number;
     qtdHoje: number;
@@ -160,6 +161,8 @@ interface PDVContainerProps {
   lowStockItems: { id: string; nome: string; estoqueAtual: number }[];
   recentSales: RecentSale[];
   initialProdutos: ProdutoPDV[];
+  showWelcome?: boolean;
+  userRole?: UserRole;
 }
 
 // ─── Live Clock & Timer Helpers ───────────────────────────────
@@ -172,7 +175,7 @@ function LiveClock() {
     const id = setInterval(update, 30000);
     return () => clearInterval(id);
   }, []);
-  return <span className="text-xs text-neutral-500 font-medium tabular-nums">{time}</span>;
+  return <span className="text-xs dash-label font-medium tabular-nums">{time}</span>;
 }
 
 function OpenTime({ createdAt }: { createdAt: number }) {
@@ -187,7 +190,7 @@ function OpenTime({ createdAt }: { createdAt: number }) {
     const id = setInterval(update, 10000);
     return () => clearInterval(id);
   }, [createdAt]);
-  return <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">{diff}</span>;
+  return <span className="text-[10px] dash-label font-bold uppercase tracking-widest">{diff}</span>;
 }
 
 // ─── Product Card (memoized — prevents re-render on cart changes) ─
@@ -199,35 +202,153 @@ interface ProductCardProps {
 const ProductCard = memo(function ProductCard({ produto: p, fmt, onAdd }: ProductCardProps) {
   const isEsgotado = p.estoqueAtual <= 0;
   return (
-    <button
+    <motion.button
       key={p.id}
       disabled={isEsgotado}
       onClick={() => onAdd(p.id, p.nome, p.precoCentavos)}
-      className={`bg-[#13161A] border border-white/5 p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-all relative overflow-hidden group shadow-xl ${isEsgotado ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-emerald-500/30 active:scale-[0.98]'}`}
+      whileTap={isEsgotado ? {} : { scale: 0.93 }}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      className={`dash-card border dash-border p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-colors relative overflow-hidden group shadow-xl min-h-[120px] ${isEsgotado ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-[var(--brasa-border)] active:scale-95'}`}
     >
-      <div className={`w-16 h-16 rounded-full bg-neutral-800 border-2 border-white/5 flex items-center justify-center transition-transform ${!isEsgotado && 'group-hover:scale-105'}`}>
-        <Package size={24} className={isEsgotado ? 'text-neutral-700' : 'text-neutral-500'} />
+      {/* Ícone maior — Fitts */}
+      <div className={`w-14 h-14 rounded-2xl dash-muted border-2 dash-border flex items-center justify-center transition-transform ${!isEsgotado && 'group-hover:scale-105 group-hover:border-[var(--brasa-border)]'}`}>
+        <Package size={26} className={isEsgotado ? 'dash-subtitle' : 'dash-label'} />
       </div>
-      <div>
-        <p className={`font-black text-sm leading-tight transition-colors line-clamp-2 ${!isEsgotado && 'group-hover:text-emerald-400'}`}>{p.nome}</p>
-        <p className={`font-bold mt-1 text-sm tabular-nums ${isEsgotado ? 'text-neutral-500' : 'text-emerald-500/80'}`}>{fmt(p.precoCentavos)}</p>
+      <div className="w-full">
+        <p className={`font-black text-sm leading-tight transition-colors line-clamp-2 ${!isEsgotado && 'group-hover:dash-highlight-text'}`}>{p.nome}</p>
+        <p className={`font-bold mt-1 text-sm tabular-nums ${isEsgotado ? 'dash-label' : 'dash-highlight-text'}`}>{fmt(p.precoCentavos)}</p>
       </div>
       {isEsgotado && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rotate-[-15deg] pointer-events-none">
-          <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-rose-500/20">
+        <div className="absolute inset-0 bg-[var(--parchment)]/80 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+          <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-rose-500/20 rotate-[-8deg]">
             Esgotado
           </span>
         </div>
       )}
-    </button>
+    </motion.button>
   );
 });
 
+// ─── Swipe-to-Delete Cart Item (Poka-yoke) ────────────────────
+interface SwipeCartItemProps {
+  item: CartItem;
+  fmt: (c: number) => string;
+  onIncrement: (id: string) => void;
+  onDecrement: (id: string) => void;
+  onRemove: (id: string) => void;
+  onTogglePrepared: (id: string) => void;
+}
+
+const SWIPE_THRESHOLD = 120;
+
+function SwipeCartItem({ item, fmt, onIncrement, onDecrement, onRemove, onTogglePrepared }: SwipeCartItemProps) {
+  const x = useMotionValue(0);
+  const background = useTransform(x, [-SWIPE_THRESHOLD, -SWIPE_THRESHOLD * 0.4, 0], ["rgba(239,68,68,0.25)", "rgba(239,68,68,0.08)", "rgba(0,0,0,0)"]);
+  const trashOpacity = useTransform(x, [-SWIPE_THRESHOLD, -SWIPE_THRESHOLD * 0.5, 0], [1, 0.5, 0]);
+  const trashScale = useTransform(x, [-SWIPE_THRESHOLD, -SWIPE_THRESHOLD * 0.5, 0], [1.2, 0.9, 0.6]);
+
+  const handleDragEnd = (_: unknown, info: { offset: { x: number } }) => {
+    if (info.offset.x < -SWIPE_THRESHOLD) {
+      onRemove(item.produtoId);
+    }
+  };
+
+  return (
+    <motion.li
+      layout
+      key={item.produtoId}
+      initial={{ opacity: 0, x: 20, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: -60, scale: 0.9 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className={`relative overflow-hidden rounded-[24px] ${item.prepared ? 'opacity-40' : 'opacity-100'}`}
+    >
+      {/* Fundo vermelho revelado pelo swipe */}
+      <motion.div
+        style={{ background }}
+        className="absolute inset-0 rounded-[24px] flex items-center justify-end pr-5 pointer-events-none"
+      >
+        <motion.div style={{ opacity: trashOpacity, scale: trashScale }}>
+          <Trash2 size={22} className="text-rose-500" />
+        </motion.div>
+      </motion.div>
+
+      {/* Card arrastável */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: -SWIPE_THRESHOLD * 1.2, right: 0 }}
+        dragElastic={{ left: 0.15, right: 0 }}
+        style={{ x }}
+        onDragEnd={handleDragEnd}
+        whileDrag={{ cursor: "grabbing" }}
+        className="relative dash-muted p-4 rounded-[24px] border dash-border touch-pan-y select-none"
+      >
+        <div className="flex items-center gap-3">
+          {/* Controles +/- — h-12 w-12 (Fitts) */}
+          <div className="flex items-center gap-1 dash-card rounded-xl border dash-border p-0.5 shrink-0">
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 500, damping: 15 }}
+              aria-label={`Diminuir ${item.nome}`}
+              onClick={() => onDecrement(item.produtoId)}
+              className="w-10 h-10 flex items-center justify-center dash-label hover:dash-value hover:dash-muted rounded-lg transition-colors"
+            >
+              <Minus size={15} />
+            </motion.button>
+            <span aria-live="polite" className="w-7 text-center text-sm font-black tabular-nums dash-value">{item.quantidade}</span>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 500, damping: 15 }}
+              aria-label={`Aumentar ${item.nome}`}
+              onClick={() => onIncrement(item.produtoId)}
+              className="w-10 h-10 flex items-center justify-center dash-label hover:dash-value hover:dash-muted rounded-lg transition-colors"
+            >
+              <Plus size={15} />
+            </motion.button>
+          </div>
+
+          {/* Nome e preço */}
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm leading-tight dash-value truncate">{item.nome}</p>
+            <p className="text-xs dash-highlight-text font-bold tabular-nums mt-0.5">{fmt(item.precoCentavos * item.quantidade)}</p>
+          </div>
+
+          {/* Botão preparado */}
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.85 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            aria-label={item.prepared ? `Desmarcar ${item.nome}` : `Marcar ${item.nome} como preparado`}
+            onClick={() => onTogglePrepared(item.produtoId)}
+            className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
+              item.prepared
+                ? 'bg-[var(--brasa)] border-[var(--brasa)] text-white shadow-[0_0_12px_rgba(211,84,0,0.4)]'
+                : 'dash-border text-transparent hover:border-[var(--brasa-border)]'
+            }`}
+          >
+            <CheckCircle2 size={15} />
+          </motion.button>
+        </div>
+
+        {/* Hint de swipe — aparece só no primeiro item */}
+        {item === undefined ? null : (
+          <p className="text-[9px] dash-label font-bold uppercase tracking-widest text-center mt-2 opacity-30 pointer-events-none select-none">
+            ← deslize para remover
+          </p>
+        )}
+      </motion.div>
+    </motion.li>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────
 
-export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems, recentSales, initialProdutos }: PDVContainerProps) {
+export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, lowStockItems, recentSales, initialProdutos, showWelcome, userRole = "GERENTE" }: PDVContainerProps) {
   const { items, addItem, removeItem, incrementItem, decrementItem, togglePrepared, clearCart, totalCentavos, subtotalCentavos, descontoCentavos, setDesconto, setItems } = useCartStore();
   const { comandas, saveComanda, updateComandaItems, activeComandaId, setActiveComanda, closeComanda } = useTabStore();
+  const { onSaleSuccess } = useSensoryFeedback();
   
   const { data: produtos = initialProdutos, isLoading } = useQuery({
     queryKey: ['produtos-pdv'],
@@ -257,10 +378,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   
   const [comandaModalOpen, setComandaModalOpen] = useState(false);
   const [comandaName, setComandaName] = useState("");
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [changeOverlay, setChangeOverlay] = useState<{ troco: number } | null>(null);
+  const changeOverlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [discountModalOpen, setDiscountModalOpen] = useState(false);
-  const [lastSaleTotal, setLastSaleTotal] = useState(0);
-  const [lastSaleItems, setLastSaleItems] = useState<CartItem[]>([]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedHistoryDate, setSelectedHistoryDate] = useState(new Date());
@@ -306,9 +429,11 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   };
 
   const handleAddProduct = useCallback((id: string, nome: string, preco: number) => {
+    // Optimistic UI — atualiza estoque local imediatamente (Step 3)
+    addOptimisticProduto({ type: 'update', payload: { id, nome, precoCentavos: safeCentavos(preco), precoCustoCentavos: 0, categoria: '', estoqueAtual: Math.max(0, (produtos.find(p => String(p.id) === id)?.estoqueAtual ?? 1) - 1), estoqueInicial: 0, isFavorito: false } });
     addItem({ produtoId: id, nome, precoCentavos: safeCentavos(preco) });
     setCartOpen(true);
-  }, [addItem]);
+  }, [addItem, addOptimisticProduto, produtos]);
 
   // Sale detail sheet + history query
   const [selectedSale, setSelectedSale] = useState<VendaDetalhe | null>(null);
@@ -328,6 +453,15 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   const [isPending, startTransition] = useTransition();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
+
+  useEffect(() => {
+    if (!showWelcome) return;
+    const timer = setTimeout(() => {
+      showToast(`Bem-vindo ao ${nomeLoja}! Seu primeiro produto já está no PDV. 🎉`);
+    }, 800);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const deleteMutation = useMutation({
     mutationFn: async (produtoId: string) => {
@@ -362,77 +496,66 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const { register, handleSubmit, watch, formState: { errors }, reset: resetForm, setValue } = useForm<CheckoutForm>({
+  const { handleSubmit, watch, reset: resetForm } = useForm<CheckoutForm>({
     resolver: zodResolver(checkoutSchema) as Resolver<CheckoutForm>,
-    defaultValues: { 
-      pagamento: 'DINHEIRO',
-      valorRecebido: 0,
-      valorPix: 0,
-      valorDinheiro: 0
-    }
+    defaultValues: { pagamento: 'DINHEIRO' }
   });
 
-  const pagamentoType = watch("pagamento");
-  const valorRecebidoRaw = watch("valorRecebido");
-  
+  // ─── Split Payment State ──────────────────────────────────────
+  type SplitMetodo = 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+  const [splitPagamentos, setSplitPagamentos] = useState<{ metodo: SplitMetodo; valorCentavos: number }[]>([]);
+  const [splitInputValor, setSplitInputValor] = useState("");
+  const splitInputRef = useRef<HTMLInputElement>(null);
+
+  const pagamentoType = watch("pagamento") as SplitMetodo;
+
   // Financial normalization helper (Cents Rule)
   const toCents = (val: unknown) => Math.round(sanitize(val) * 100);
 
-  const valorRecebido = toCents(valorRecebidoRaw);
-  const troco = pagamentoType === 'DINHEIRO' ? Math.max(0, valorRecebido - total) : 0;
-  
-  const valorPixRaw = watch("valorPix");
-  const valorDinheiroRaw = watch("valorDinheiro");
-  
-  const mistoPixCentavos = toCents(valorPixRaw);
-  const mistoDinheiroCentavos = toCents(valorDinheiroRaw);
-  const mistoTotalCentavos = mistoPixCentavos + mistoDinheiroCentavos;
-  
-  const faltaMisto = Math.max(0, total - mistoTotalCentavos);
-  const trocoMisto = mistoTotalCentavos > total && mistoDinheiroCentavos > (total - mistoPixCentavos) 
-    ? mistoTotalCentavos - total 
-    : 0;
-    
-  const isMistoValid = pagamentoType === 'MISTO' && mistoTotalCentavos >= total;
+  const splitPago = splitPagamentos.reduce((s, p) => s + p.valorCentavos, 0);
+  const splitRestante = Math.max(0, total - splitPago);
+  const splitTroco = Math.max(0, splitPago - total);
+  const isSplitValid = splitPago >= total && splitPagamentos.length > 0;
+
+  // Troco em dinheiro = dinheiro pago - (total - outros métodos)
+  const splitDinheiroPago = splitPagamentos.filter(p => p.metodo === 'DINHEIRO').reduce((s, p) => s + p.valorCentavos, 0);
+  const splitNaoDinheiro = splitPagamentos.filter(p => p.metodo !== 'DINHEIRO').reduce((s, p) => s + p.valorCentavos, 0);
+  const trocoFinal = Math.max(0, splitDinheiroPago - Math.max(0, total - splitNaoDinheiro));
+
+  const addSplitPagamento = (metodo: SplitMetodo) => {
+    const raw = parseFloat(splitInputValor.replace(',', '.'));
+    if (isNaN(raw) || raw <= 0) return;
+    const valorCentavos = Math.round(raw * 100);
+    setSplitPagamentos(prev => [...prev, { metodo, valorCentavos }]);
+    setSplitInputValor("");
+    splitInputRef.current?.focus();
+  };
+
+  const removeSplitPagamento = (idx: number) => {
+    setSplitPagamentos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Reset split state on cart clear
+  const resetSplitState = () => {
+    setSplitPagamentos([]);
+    setSplitInputValor("");
+  };
 
 
   const mutation = useMutation({
     mutationFn: async (data: CheckoutForm) => {
+      // Valida que todos os IDs são numéricos antes de converter para BigInt
+      const invalidItems = items.filter(item => !/^\d+$/.test(item.produtoId));
+      if (invalidItems.length > 0) {
+        throw new Error(`Produto(s) inválido(s): ${invalidItems.map(i => i.nome).join(", ")}. Recarregue a página.`);
+      }
+
       const cartSerialized = items.map(item => ({
-        produtoId: item.produtoId,
+        produtoId: BigInt(item.produtoId),
         nome: item.nome,
         quantidade: item.quantidade,
         precoCentavos: item.precoCentavos,
       }));
-
-      // Base Payload
-      const payload: {
-        cart: typeof cartSerialized;
-        pagamento: { tipo: string; pixId?: string; pixCentavos: number; dinheiroCentavos: number; cartaoCentavos?: number };
-      } = {
-        cart: cartSerialized,
-        pagamento: {
-          tipo: data.pagamento,
-          pixId: undefined,
-          pixCentavos: 0,
-          dinheiroCentavos: 0
-        }
-      };
-
-      // Case-specific payload refinement
-      if (data.pagamento === 'DINHEIRO') {
-        payload.pagamento.dinheiroCentavos = total; // Net revenue
-      } else if (data.pagamento === 'PIX') {
-        payload.pagamento.pixCentavos = total;
-        payload.pagamento.pixId = `PIX-${Date.now()}`; // Unique ID placeholder
-      } else if (data.pagamento === 'CARTAO') {
-        payload.pagamento.cartaoCentavos = total;
-        payload.pagamento.pixId = `CARD-${Date.now()}`;
-      } else if (data.pagamento === 'MISTO') {
-        payload.pagamento.pixCentavos = Math.round(sanitize(data.valorPix) * 100);
-        payload.pagamento.dinheiroCentavos = Math.round(sanitize(data.valorDinheiro) * 100);
-        payload.pagamento.pixId = `MISTO-${Date.now()}`;
-      }
 
       // Resolve comanda to close (create new if needed)
       let comandaParaFechar: string | null = null;
@@ -445,7 +568,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         }
       }
 
-      const res = await registrarVenda(payload as unknown as Parameters<typeof registrarVenda>[0]);
+      const res = await registrarVenda({ cart: cartSerialized, pagamentos: splitPagamentos });
 
       if (!res.success) {
         console.error("❌ Erro na Server Action:", res.error);
@@ -459,8 +582,26 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
       return res;
     },
     onSuccess: async () => {
-      setLastSaleTotal(total);
-      setLastSaleItems([...items]);
+      const metodo = pagamentoType ?? undefined;
+      onSaleSuccess(metodo);
+
+      const snapshotSplits = [...splitPagamentos];
+      const snapshotTroco = trocoFinal;
+
+      // Derive metodoPagamento label for receipt
+      const metodosUnicos = [...new Set(snapshotSplits.map(p => p.metodo))];
+      const metodoLabel = metodosUnicos.length === 1 ? metodosUnicos[0] : 'MISTO';
+
+      const receipt: ReceiptData = {
+        nomeLoja,
+        items: [...items],
+        totalCentavos: total,
+        metodoPagamento: metodoLabel,
+        criadoEm: new Date(),
+        instagramUrl: instagramUrl || undefined,
+        troco: snapshotTroco,
+      };
+      setReceiptData(receipt);
 
       // Atualiza o estoque localmente sem round-trip ao servidor
       const soldItems = [...items];
@@ -475,46 +616,55 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
       if (activeComandaId) closeComanda(activeComandaId);
       resetMesaSelector();
-      clearCart();
-      setCartOpen(false);
-      resetForm();
-      setSuccessModalOpen(true);
-      showToast("Venda finalizada com sucesso!");
+
+      const doReset = () => {
+        clearCart();
+        setCartOpen(false);
+        resetForm();
+        resetSplitState();
+        setChangeOverlay(null);
+      };
+
+      // Dispara impressão de forma assíncrona (não bloqueia o fluxo)
+      setTimeout(() => {
+        const el = document.getElementById("thermal-receipt");
+        if (el) {
+          const win = window.open("", "_blank", "width=400,height=600");
+          if (win) {
+            win.document.write(`<html><head><title>Recibo</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}@media print{@page{margin:0;size:80mm auto}body{-webkit-print-color-adjust:exact}}</style></head><body>${el.innerHTML}</body></html>`);
+            win.document.close();
+            win.focus();
+            setTimeout(() => { win.print(); win.close(); }, 300);
+          }
+        }
+      }, 0);
+
+      if (snapshotTroco > 0) {
+        setChangeOverlay({ troco: snapshotTroco });
+        if (changeOverlayTimerRef.current) clearTimeout(changeOverlayTimerRef.current);
+        changeOverlayTimerRef.current = setTimeout(doReset, 4000);
+      } else {
+        doReset();
+        showToast("Venda finalizada!");
+      }
     },
     onError: (err: Error) => {
       showToast(err.message, 'error');
     },
   });
 
-  const onSubmit = (data: CheckoutForm) => {
+  const onSubmit = (_data: CheckoutForm) => {
     if (items.length === 0) return showToast("Carrinho vazio.", 'error');
-
-    if (pagamentoType === 'DINHEIRO') {
-      const recebido = Math.round(sanitize(data.valorRecebido) * 100);
-      if (recebido < total) return showToast(`Valor insuficiente. Falta ${fmt(total - recebido)}`, 'error');
-    }
-
-    if (pagamentoType === 'MISTO') {
-      const pix = Math.round(sanitize(data.valorPix) * 100);
-      const money = Math.round(sanitize(data.valorDinheiro) * 100);
-      const sum = pix + money;
-      
-      if (sum < total) {
-        return showToast(`Pagamento insuficiente. Falta ${fmt(total - sum)}`, 'error');
-      }
-      if (sum > total) {
-        return showToast(`O pagamento misto deve ser exato. Excedente: ${fmt(sum - total)}`, 'error');
-      }
-    }
-
-    mutation.mutate(data);
+    if (!isTurnoAberto) return showToast("Abra o caixa antes de vender.", 'error');
+    if (!isSplitValid) return showToast(`Pagamento insuficiente. Falta ${fmt(splitRestante)}`, 'error');
+    mutation.mutate(_data);
   };
 
   const paymentMethods = [
     { value: 'DINHEIRO' as const, label: 'Dinheiro', icon: Banknote },
     { value: 'PIX' as const, label: 'Pix', icon: QrCode },
-    { value: 'CARTAO' as const, label: 'Cartão', icon: CreditCard },
-    { value: 'MISTO' as const, label: 'Misto', icon: LayoutGrid },
+    { value: 'CARTAO_CREDITO' as const, label: 'Crédito', icon: CreditCard },
+    { value: 'CARTAO_DEBITO' as const, label: 'Débito', icon: CreditCard },
   ];
 
   const handleSaveToComanda = () => {
@@ -572,22 +722,22 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
   );
 
   return (
-    <div className="h-full w-full bg-[#0B0D11] overflow-hidden text-neutral-100 font-sans md:grid md:grid-cols-[1fr_400px]">
+    <div className="h-full w-full bg-[var(--parchment)] overflow-hidden text-neutral-100 font-sans md:grid md:grid-cols-[1fr_400px]">
 
       {/* ─── MAIN CONTENT (COLUNA 1) ─── */}
       <div className="h-full flex flex-col overflow-hidden relative z-30">
         
         {/* Header (Fixo no Topo) */}
-        <header className="px-6 pt-16 pb-4 md:py-4 border-b border-white/5 bg-[#0B0D11] flex flex-shrink-0 items-center justify-between">
+        <header className="px-6 pt-16 pb-4 md:py-4 border-b dash-border bg-[var(--parchment)] flex flex-shrink-0 items-center justify-between">
           <div className="flex flex-col gap-0.5 shrink-0">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black tracking-tighter">{nomeLoja}</h1>
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-500 dash-icon-accent px-2 py-0.5 rounded-full">
                 <CheckCircle2 size={12} /> Nuvem
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-neutral-500">
-              <span className="font-bold text-neutral-400">Operador: Admin</span>
+            <div className="flex items-center gap-2 text-xs dash-label">
+              <span className="font-bold dash-label">Operador: Admin</span>
               <span>•</span>
               <LiveClock />
             </div>
@@ -596,34 +746,34 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         </header>
 
         {/* Dashboard Bar (Resumo Operacional) */}
-        <section className="px-6 py-4 bg-[#0B0D11] flex flex-shrink-0 gap-6 overflow-x-auto border-b border-white/5 scrollbar-hide">
-          <div className="flex-1 min-w-[200px] bg-[#13161A] border border-white/10 rounded-2xl p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><Lock size={24}/></div>
+        <section className="px-6 py-4 bg-[var(--parchment)] flex flex-shrink-0 gap-6 overflow-x-auto border-b dash-border scrollbar-hide">
+          <div className="flex-1 min-w-[200px] dash-card border dash-border rounded-2xl p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl dash-icon-accent flex items-center justify-center dash-highlight-text"><Lock size={24}/></div>
             <div>
-              <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-0.5">Cofre (Dinheiro)</p>
+              <p className="text-xs dash-label font-bold uppercase tracking-wider mb-0.5">Cofre (Dinheiro)</p>
               <p className="text-lg font-black tabular-nums">{fmt(insights.vaultCentavos)}</p>
             </div>
           </div>
-          <div className="flex-1 min-w-[200px] bg-[#13161A] border border-white/10 rounded-2xl p-4 flex items-center gap-4">
+          <div className="flex-1 min-w-[200px] dash-card border dash-border rounded-2xl p-4 flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${lowStockItems.length > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}><Package size={24}/></div>
             <div>
-              <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-0.5">Estoque</p>
+              <p className="text-xs dash-label font-bold uppercase tracking-wider mb-0.5">Estoque</p>
               <p className="text-lg font-black">{lowStockItems.length > 0 ? `${lowStockItems.length} Itens Críticos` : 'Normal'}</p>
             </div>
           </div>
-          <div className="flex-1 min-w-[200px] bg-[#13161A] border border-white/10 rounded-2xl p-4 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isTurnoAberto ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}><CheckCircle2 size={24}/></div>
+          <div className="flex-1 min-w-[200px] dash-card border dash-border rounded-2xl p-4 flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isTurnoAberto ? 'dash-icon-accent dash-highlight-text' : 'bg-rose-500/10 text-rose-400'}`}><CheckCircle2 size={24}/></div>
             <div>
-              <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-0.5">Status</p>
+              <p className="text-xs dash-label font-bold uppercase tracking-wider mb-0.5">Status</p>
               <p className="text-lg font-black uppercase tracking-tighter">{isTurnoAberto ? 'Caixa Aberto' : 'Caixa Fechado'}</p>
             </div>
           </div>
         </section>
 
         {/* Tab Navigation */}
-        <nav className="px-6 py-4 flex flex-shrink-0 gap-3 border-b border-white/5 bg-[#0B0D11]">
-          <button onClick={() => setActiveView("VENDA")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeView === "VENDA" ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Pedido Balcão</button>
-          <button onClick={() => setActiveView("COMANDAS")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === "COMANDAS" ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Pedidos em Aberto <span className="bg-white/10 px-1.5 py-0.5 rounded-md text-[10px]">{comandas.length}</span></button>
+        <nav className="px-6 py-4 flex flex-shrink-0 gap-3 border-b dash-border bg-[var(--parchment)]">
+          <button onClick={() => setActiveView("VENDA")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeView === "VENDA" ? 'bg-[var(--brasa)] dash-value shadow-lg shadow-[0_4px_12px_rgba(211,84,0,0.15)]' : 'dash-muted dash-label hover:dash-value'}`}>Pedido Balcão</button>
+          <button onClick={() => setActiveView("COMANDAS")} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === "COMANDAS" ? 'bg-[var(--brasa)] dash-value shadow-lg shadow-[0_4px_12px_rgba(211,84,0,0.15)]' : 'dash-muted dash-label hover:dash-value'}`}>Pedidos em Aberto <span className="dash-muted px-1.5 py-0.5 rounded-md text-[10px]">{comandas.length}</span></button>
         </nav>
 
         {/* Main Area (Scroll Interno) */}
@@ -635,7 +785,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 {/* Busca e Filtros */}
                 <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
                   <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 dash-label" size={18} />
                     <input
                       ref={searchInputRef}
                       autoFocus
@@ -644,19 +794,19 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                       placeholder="Bipar código ou digitar produto..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-sm font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-600"
+                      className="w-full h-12 dash-muted border dash-border rounded-xl pl-12 pr-4 text-sm font-bold focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:text-neutral-600"
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setActiveTab("todos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all ${activeTab === "todos" ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-white/5 bg-white/5 text-neutral-500 hover:text-neutral-300'}`}>Todos</button>
-                    <button onClick={() => setActiveTab("favoritos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${activeTab === "favoritos" ? 'border-amber-500/50 bg-amber-500/10 text-amber-400' : 'border-white/5 bg-white/5 text-neutral-500 hover:text-neutral-300'}`}><Star size={14}/> Favoritos</button>
+                    <button onClick={() => setActiveTab("todos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all ${activeTab === "todos" ? 'border-emerald-500/50 dash-icon-accent dash-highlight-text' : 'dash-border dash-muted dash-label hover:dash-value'}`}>Todos</button>
+                    <button onClick={() => setActiveTab("favoritos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${activeTab === "favoritos" ? 'border-amber-500/50 bg-amber-500/10 text-amber-400' : 'dash-border dash-muted dash-label hover:dash-value'}`}><Star size={14}/> Favoritos</button>
                   </div>
                 </div>
 
                 {isLoading ? (
-                  <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-neutral-500" size={32}/></div>
+                  <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin dash-label" size={32}/></div>
                 ) : filteredProdutos.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-neutral-500 opacity-60"><Package size={48} className="mb-4"/><p className="font-bold">Nenhum produto encontrado</p></div>
+                  <div className="flex-1 flex flex-col items-center justify-center dash-label opacity-60"><Package size={48} className="mb-4"/><p className="font-bold">Nenhum produto encontrado</p></div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20 md:pb-0">
                     {optimisticProdutos
@@ -681,21 +831,24 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
             {activeView === "COMANDAS" && (
               <motion.div key="comandas" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                 {comandas.length === 0 ? (
-                  <div className="h-80 rounded-3xl border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-neutral-600 bg-white/[0.02]"><ClipboardList size={48} className="mb-4 opacity-20"/><p className="font-bold">Nenhuma comanda aberta</p></div>
+                  <div className="h-80 rounded-3xl border-2 border-dashed dash-border flex flex-col items-center justify-center text-neutral-600 dash-muted"><ClipboardList size={48} className="mb-4 opacity-20"/><p className="font-bold">Nenhuma comanda aberta</p></div>
                 ) : (
                   <LayoutGroup>
                     <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20 md:pb-0">
                       {comandas.map((c) => (
-                        <motion.button layout key={c.id} onClick={() => selectComanda(c)} className="bg-[#13161A] border border-white/10 p-6 rounded-3xl flex flex-col gap-4 text-left hover:border-emerald-500/50 transition-all relative overflow-hidden group shadow-2xl">
+                        <motion.button layout key={c.id} onClick={() => selectComanda(c)}
+                          whileTap={{ scale: 0.97 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                          className="dash-card border dash-border p-6 rounded-3xl flex flex-col gap-4 text-left hover:border-emerald-500/50 transition-colors relative overflow-hidden group shadow-2xl">
                           <div className="flex justify-between items-start">
-                            <div className="flex flex-col"><span className="text-xs text-neutral-500 font-black uppercase tracking-widest mb-1">Cliente / Mesa</span><span className="text-xl font-black text-neutral-100">{c.clienteNome}</span></div>
+                            <div className="flex flex-col"><span className="text-xs dash-label font-black uppercase tracking-widest mb-1">Cliente / Mesa</span><span className="text-xl font-black text-neutral-100">{c.clienteNome}</span></div>
                             <OpenTime createdAt={c.createdAt} />
                           </div>
                           <div className="flex items-end justify-between mt-6">
-                            <div className="flex -space-x-2">{c.items.slice(0,3).map((it, idx) => <div key={idx} className="w-8 h-8 rounded-full bg-neutral-800 border-2 border-[#13161A] flex items-center justify-center text-xs font-bold text-neutral-400">{it.quantidade}</div>)}{c.items.length > 3 && <div className="w-8 h-8 rounded-full bg-neutral-800 border-2 border-[#13161A] flex items-center justify-center text-xs font-bold text-neutral-500">+{c.items.length - 3}</div>}</div>
-                            <div className="text-2xl font-black text-emerald-400 tabular-nums tracking-tighter">{fmt(c.items.reduce((acc, i) => acc + (i.precoCentavos * i.quantidade), 0))}</div>
+                            <div className="flex -space-x-2">{c.items.slice(0,3).map((it, idx) => <div key={idx} className="w-8 h-8 rounded-full dash-muted border-2 border-[#13161A] flex items-center justify-center text-xs font-bold dash-label">{it.quantidade}</div>)}{c.items.length > 3 && <div className="w-8 h-8 rounded-full dash-muted border-2 border-[#13161A] flex items-center justify-center text-xs font-bold dash-label">+{c.items.length - 3}</div>}</div>
+                            <div className="text-2xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(c.items.reduce((acc, i) => acc + (i.precoCentavos * i.quantidade), 0))}</div>
                           </div>
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-emerald-500/10 transition-all" />
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--brasa)]/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-[var(--brasa-hover)]/10 transition-all" />
                         </motion.button>
                       ))}
                     </motion.div>
@@ -709,7 +862,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <h2 className="text-2xl font-black">Histórico de Vendas</h2>
-                    <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Exibindo registros por data</p>
+                    <p className="text-[10px] font-bold dash-label uppercase tracking-widest mt-1">Exibindo registros por data</p>
                   </div>
                   <PremiumDatePicker 
                     selectedDate={selectedHistoryDate} 
@@ -720,13 +873,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 <div className="grid grid-cols-1 gap-4">
                   {historicoQuery.isLoading ? (
                     Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />
+                      <div key={i} className="h-24 dash-muted rounded-2xl animate-pulse" />
                     ))
                   ) : (historicoQuery.data ?? []).length === 0 ? (
-                    <div className="bg-white/5 border border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center text-center opacity-50">
-                      <Clock size={48} className="mb-6 text-neutral-500" />
+                    <div className="dash-muted border dash-border rounded-3xl p-12 flex flex-col items-center justify-center text-center opacity-50">
+                      <Clock size={48} className="mb-6 dash-label" />
                       <p className="font-bold text-lg mb-2">Nenhuma venda nesta data</p>
-                      <p className="text-sm text-neutral-400">Tente selecionar outro dia no calendário acima.</p>
+                      <p className="text-sm dash-label">Tente selecionar outro dia no calendário acima.</p>
                     </div>
                   ) : (
                     (historicoQuery.data ?? []).map((sale) => (
@@ -736,25 +889,25 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                         onClick={() => setSelectedSale(sale)}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="w-full text-left bg-[#13161A] border border-white/5 p-5 rounded-2xl flex items-center justify-between group hover:border-emerald-500/30 hover:bg-[#161a20] active:scale-[0.99] transition-all cursor-pointer"
+                        className="w-full text-left dash-card border dash-border p-5 rounded-2xl flex items-center justify-between group hover:border-[var(--brasa-border)] hover:bg-[var(--muted-hover)] active:scale-[0.99] transition-all cursor-pointer"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-neutral-400 group-hover:bg-emerald-500/10 group-hover:text-emerald-400 transition-colors">
+                          <div className="w-12 h-12 rounded-xl dash-muted flex items-center justify-center dash-label group-hover:bg-[var(--brasa-hover)]/10 group-hover:dash-highlight-text transition-colors">
                             {sale.metodoPagto === 'PIX' ? <QrCode size={20} /> : sale.metodoPagto === 'DINHEIRO' ? <Banknote size={20} /> : <CreditCard size={20} />}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-black text-neutral-200">Venda #{sale.id.slice(-4)}</span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 text-neutral-500 uppercase tracking-tighter">{sale.metodoPagto}</span>
+                              <span className="font-black dash-value">Venda #{sale.id.slice(-4)}</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md dash-muted dash-label uppercase tracking-tighter">{sale.metodoPagto}</span>
                             </div>
-                            <p className="text-xs text-neutral-500 font-medium mt-1">
+                            <p className="text-xs dash-label font-medium mt-1">
                               {new Date(sale.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-black text-emerald-400 tabular-nums tracking-tighter">{fmt(sale.totalCentavos)}</p>
-                          <p className="text-[10px] font-bold text-neutral-500/60 uppercase tracking-widest mt-1 group-hover:text-emerald-500/60 transition-colors">Ver detalhes →</p>
+                          <p className="text-xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(sale.totalCentavos)}</p>
+                          <p className="text-[10px] font-bold dash-label/60 uppercase tracking-widest mt-1 group-hover:text-emerald-500/60 transition-colors">Ver detalhes →</p>
                         </div>
                       </motion.button>
                     ))
@@ -765,33 +918,37 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
             {activeView === "ESTOQUE" && (
               <motion.div key="estoque" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex flex-col gap-6">
-                 <div className="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10">
+                 <div className="flex justify-between items-center dash-muted p-4 rounded-2xl border dash-border">
                    <h2 className="text-xl font-black">Gestão de Estoque</h2>
-                   <button onClick={() => { setEditingProduct(null); setCrudModalOpen(true); }} className="h-10 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white transition-all active:scale-[0.98] shadow-lg shadow-emerald-600/20"><Plus size={14}/> Novo</button>
+                   {userRole === "GERENTE" && (
+                     <button onClick={() => { setEditingProduct(null); setCrudModalOpen(true); }} className="h-10 px-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] dash-value transition-all active:scale-[0.98] shadow-lg shadow-[0_4px_12px_rgba(211,84,0,0.15)]"><Plus size={14}/> Novo</button>
+                   )}
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {(produtos as ProdutoPDV[]).map((p) => (
-                     <motion.div layout key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-neutral-900/40 border border-white/5 hover:border-white/15 transition-all rounded-2xl p-5 flex flex-col gap-3 relative group">
+                     <motion.div layout key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[var(--muted)] border dash-border hover:border-[var(--border-md)] transition-all rounded-2xl p-5 flex flex-col gap-3 relative group">
                         {p.estoqueAtual < 5 && <div className="absolute top-4 right-4 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></div>}
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-neutral-800 rounded-lg flex items-center justify-center"><Package size={16} className="text-neutral-400"/></div>
+                          <div className="w-10 h-10 dash-muted rounded-lg flex items-center justify-center"><Package size={16} className="dash-label"/></div>
                           <div className="flex-1 min-w-0">
                             <span className="font-bold text-sm leading-tight block truncate">{p.nome}</span>
-                            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">{p.categoria || 'Outros'}</span>
+                            <span className="text-[10px] dash-label font-bold uppercase tracking-wider">{p.categoria || 'Outros'}</span>
                           </div>
                         </div>
-                        <div className="flex justify-between items-center text-sm pt-2 border-t border-white/5">
-                          <span className="text-neutral-500 font-bold">Estoque:</span>
-                          <span className={`${p.estoqueAtual < 5 ? 'text-amber-400 bg-amber-400/10' : 'text-neutral-300 bg-white/5'} px-2 py-1 rounded-md font-bold tabular-nums`}>{p.estoqueAtual} unid.</span>
+                        <div className="flex justify-between items-center text-sm pt-2 border-t dash-border">
+                          <span className="dash-label font-bold">Estoque:</span>
+                          <span className={`${p.estoqueAtual < 5 ? 'text-amber-400 bg-amber-400/10' : 'dash-value dash-muted'} px-2 py-1 rounded-md font-bold tabular-nums`}>{p.estoqueAtual} unid.</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                          <span className="text-neutral-500 font-bold">Venda / Custo:</span>
-                          <span className="text-emerald-400 font-black tabular-nums">{fmt(p.precoCentavos)} <span className="text-neutral-600">/ {fmt(p.precoCustoCentavos)}</span></span>
+                          <span className="dash-label font-bold">Venda / Custo:</span>
+                          <span className="dash-highlight-text font-black tabular-nums">{fmt(p.precoCentavos)} <span className="text-neutral-600">/ {fmt(p.precoCustoCentavos)}</span></span>
                         </div>
-                        <div className="flex gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setEditingProduct(p); setCrudModalOpen(true); }} className="flex-1 h-9 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 text-neutral-300 transition-all"><Pencil size={12}/> Editar</button>
-                          <button onClick={() => setDeletingProduct(p)} className="h-9 px-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 text-rose-400 transition-all"><Trash2 size={12}/></button>
-                        </div>
+                        {userRole === "GERENTE" && (
+                          <div className="flex gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => { setEditingProduct(p); setCrudModalOpen(true); }} className="flex-1 h-9 dash-muted hover:dash-muted border dash-border rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 dash-value transition-all"><Pencil size={12}/> Editar</button>
+                            <button onClick={() => setDeletingProduct(p)} className="h-9 px-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 text-rose-400 transition-all"><Trash2 size={12}/></button>
+                          </div>
+                        )}
                      </motion.div>
                    ))}
                  </div>
@@ -814,17 +971,17 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                   <div className="bg-[#13161A] border border-emerald-500/20 rounded-3xl p-6 relative overflow-hidden group">
-                      <div className="absolute -right-6 -top-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"/>
+                   <div className="dash-card border border-[var(--brasa-border)] rounded-3xl p-6 relative overflow-hidden group">
+                      <div className="absolute -right-6 -top-6 w-24 h-24 dash-icon-accent rounded-full blur-2xl group-hover:bg-[var(--brasa-hover)]/20 transition-all"/>
                       <h3 className="text-emerald-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><DollarSign size={14}/> Vendas Hoje</h3>
-                      <p className="text-4xl font-black text-emerald-400 tabular-nums tracking-tighter">{fmt(insights?.totalHojeCentavos || 0)}</p>
+                      <p className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(insights?.totalHojeCentavos || 0)}</p>
                    </div>
-                   <div className="bg-[#13161A] border border-blue-500/20 rounded-3xl p-6 relative overflow-hidden group">
+                   <div className="dash-card border border-blue-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"/>
                       <h3 className="text-blue-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><Hash size={14}/> Total de Pedidos</h3>
                       <p className="text-4xl font-black text-blue-400 tabular-nums tracking-tighter">{insights?.qtdHoje || 0}</p>
                    </div>
-                   <div className="bg-[#13161A] border border-purple-500/20 rounded-3xl p-6 relative overflow-hidden group">
+                   <div className="dash-card border border-purple-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"/>
                       <h3 className="text-purple-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><TrendingUp size={14}/> Ticket Médio</h3>
                       <p className="text-4xl font-black text-purple-400 tabular-nums tracking-tighter">{fmt(insights?.ticketMedioCentavos || 0)}</p>
@@ -845,32 +1002,32 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         className={`
           fixed bottom-0 inset-x-0 z-[150] w-full h-[92dvh] rounded-t-3xl overflow-hidden
           md:static md:inset-auto md:h-full md:rounded-none md:w-auto
-          bg-[#0D0F14]
-          md:border-l md:border-white/10 flex flex-col
+          bg-[var(--parchment)]
+          md:border-l md:dash-border flex flex-col
           transition-transform duration-300 ease-in-out
           ${cartOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
-          shadow-[0_-20px_80px_rgba(0,0,0,0.6)]
-          ${activeComandaId && isMounted ? 'border-t-4 border-emerald-500' : 'border-t-4 border-transparent'}
+          shadow-[0_-20px_40px_rgba(45,45,45,0.12)]
+          ${activeComandaId && isMounted ? 'border-t-4 border-[var(--brasa)]' : 'border-t-4 border-transparent'}
         `}
       >
         {/* Drag handle — mobile only */}
         <div className="md:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full bg-white/20" />
+          <div className="w-10 h-1 rounded-full bg-[var(--border-md)]" />
         </div>
         {/* Glow Decorativo de Fundo */}
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-[var(--brasa)]/5 rounded-full blur-[100px] pointer-events-none" />
         
-        <div className="p-6 md:p-8 border-b border-white/5 flex items-center justify-between relative z-10 shrink-0">
+        <div className="p-6 md:p-8 border-b dash-border flex items-center justify-between relative z-10 shrink-0">
           <div className="flex flex-col">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h2 className="text-xs font-black uppercase tracking-[0.3em] text-neutral-500">Checkout Pro</h2>
+              <div className="w-2 h-2 rounded-full bg-[var(--brasa)] animate-pulse" />
+              <h2 className="text-xs font-black uppercase tracking-[0.3em] dash-label">Checkout Pro</h2>
             </div>
-            <h3 className="text-xl font-black text-white tracking-tighter">
+            <h3 className="text-xl font-black dash-value tracking-tighter">
               {activeComandaId && isMounted ? 'Conta em Aberto' : 'Pedido Direto'}
             </h3>
             {activeComandaId && isMounted && (
-              <div className="mt-2 flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-lg w-fit">
+              <div className="mt-2 flex items-center gap-1.5 bg-[var(--brasa)]/15 border border-[var(--brasa-border)] px-3 py-1.5 rounded-lg w-fit">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                 <p className="text-[10px] text-emerald-300 font-black uppercase tracking-widest">
                   {comandas.find(c => c.id === activeComandaId)?.clienteNome ?? 'EM ATENDIMENTO'}
@@ -878,7 +1035,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
               </div>
             )}
           </div>
-          <button type="button" aria-label="Fechar carrinho" onClick={() => setCartOpen(false)} className="md:hidden w-10 h-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-all"><X size={20}/></button>
+          <button type="button" aria-label="Fechar carrinho" onClick={() => setCartOpen(false)} className="md:hidden w-10 h-10 flex items-center justify-center dash-muted hover:dash-muted rounded-full transition-all"><X size={20}/></button>
         </div>
 
         {/* ─── SCROLLABLE AREA: Mesa Selector + Items ──────────────── */}
@@ -886,11 +1043,11 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
           {/* ─── Mesa Selector (Cascade) ──────────────────────────── */}
           {isMounted && (
-            <div className="px-6 md:px-8 py-4 border-b border-white/5">
+            <div className="px-6 md:px-8 py-4 border-b dash-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <TableProperties size={13} className="text-neutral-500" />
-                  <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Vincular à Mesa</span>
+                  <TableProperties size={13} className="dash-label" />
+                  <span className="text-xs font-bold dash-label uppercase tracking-widest">Vincular à Mesa</span>
                 </div>
                 <button
                   type="button"
@@ -898,7 +1055,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                   onClick={() => handleToggleVinculado(!vinculadoAMesa)}
                 >
                   {vinculadoAMesa
-                    ? <ToggleRight size={22} className="text-emerald-400" />
+                    ? <ToggleRight size={22} className="dash-highlight-text" />
                     : <ToggleLeft size={22} className="text-neutral-600" />}
                 </button>
               </div>
@@ -911,7 +1068,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
                 if (mesasPDVLoading) {
                   return (
-                    <div className="mt-4 flex items-center gap-2 text-neutral-500 text-xs py-3">
+                    <div className="mt-4 flex items-center gap-2 dash-label text-xs py-3">
                       <Loader2 size={14} className="animate-spin" /> Carregando mesas...
                     </div>
                   );
@@ -923,7 +1080,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                     ? (novaComandaNome.trim() || "Sem nome")
                     : (comandaSelecionada?.name ?? `Comanda #${selectedComandaId.slice(-4)}`);
                   return (
-                    <div className="mt-3 flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 rounded-2xl">
+                    <div className="mt-3 flex items-center gap-3 dash-icon-accent border border-[var(--brasa-border)] px-4 py-3 rounded-2xl">
                       <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[9px] text-emerald-500/80 font-black uppercase tracking-widest">
@@ -936,7 +1093,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                       <button
                         type="button"
                         onClick={() => { setSelectedComandaId(""); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
-                        className="text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all"
+                        className="text-[10px] font-black uppercase tracking-widest dash-highlight-text hover:text-emerald-300 px-3 py-1.5 rounded-lg dash-icon-accent hover:bg-[var(--brasa-hover)]/20 border border-[var(--brasa-border)] transition-all"
                       >
                         Trocar
                       </button>
@@ -954,37 +1111,37 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                         <button
                           type="button"
                           onClick={() => { setSelectedMesaId(""); setSelectedComandaId(""); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
-                          className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-emerald-400 transition-colors"
+                          className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest dash-label hover:dash-highlight-text transition-colors"
                         >
                           <ChevronLeft size={12} /> Voltar
                         </button>
-                        <p className="text-sm font-black text-neutral-200 tracking-tight">{mesaAtual.nome}</p>
+                        <p className="text-sm font-black dash-value tracking-tight">{mesaAtual.nome}</p>
                       </div>
 
                       {/* Nova Comanda Inline Form */}
                       {isNova && !novaComandaConfirmed ? (
-                        <div className="space-y-2 bg-white/[0.03] border border-white/10 rounded-2xl p-3">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Nova Comanda</p>
+                        <div className="space-y-2 dash-muted border dash-border rounded-2xl p-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest dash-highlight-text">Nova Comanda</p>
                           <input
                             autoFocus
                             value={novaComandaNome}
                             onChange={(e) => setNovaComandaNome(e.target.value)}
                             onKeyDown={(e) => { if (e.key === "Enter") setNovaComandaConfirmed(true); }}
                             placeholder="Nome do cliente (opcional)"
-                            className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-semibold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-600"
+                            className="w-full h-11 dash-muted border dash-border rounded-xl px-4 text-sm font-semibold focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:text-neutral-600"
                           />
                           <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => { setSelectedComandaId(""); setNovaComandaNome(""); }}
-                              className="flex-1 h-10 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-bold rounded-xl text-xs"
+                              className="flex-1 h-10 dash-muted hover:dash-muted border dash-border dash-value font-bold rounded-xl text-xs"
                             >
                               Cancelar
                             </button>
                             <button
                               type="button"
                               onClick={() => setNovaComandaConfirmed(true)}
-                              className="flex-1 h-10 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20"
+                              className="flex-1 h-10 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] dash-value font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-[0_4px_12px_rgba(211,84,0,0.15)]"
                             >
                               <CheckCircle2 size={13} /> Confirmar
                             </button>
@@ -1000,15 +1157,15 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                                   key={c.id}
                                   type="button"
                                   onClick={() => setSelectedComandaId(c.id)}
-                                  className="w-full flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-emerald-500/30 rounded-xl px-3.5 py-2.5 transition-all group"
+                                  className="w-full flex items-center justify-between dash-muted hover:dash-muted border dash-border hover:border-[var(--brasa-border)] rounded-xl px-3.5 py-2.5 transition-all group"
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <ClipboardList size={14} className="text-neutral-500 group-hover:text-emerald-400 transition-colors shrink-0" />
-                                    <span className="text-sm font-bold text-neutral-200 truncate">
+                                    <ClipboardList size={14} className="dash-label group-hover:dash-highlight-text transition-colors shrink-0" />
+                                    <span className="text-sm font-bold dash-value truncate">
                                       {c.name ?? `Comanda #${c.id.slice(-4)}`}
                                     </span>
                                   </div>
-                                  <span className="text-xs font-black tabular-nums text-emerald-400 shrink-0 ml-2">
+                                  <span className="text-xs font-black tabular-nums dash-highlight-text shrink-0 ml-2">
                                     {fmtBRL(c.totalCentavos)}
                                   </span>
                                 </button>
@@ -1020,7 +1177,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                           <button
                             type="button"
                             onClick={() => { setSelectedComandaId("__nova__"); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
-                            className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/15 border border-dashed border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 font-black text-xs uppercase tracking-widest rounded-xl px-4 py-3 transition-all"
+                            className="w-full flex items-center justify-center gap-2 dash-icon-accent hover:bg-[var(--brasa-hover)]/15 border border-dashed border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 font-black text-xs uppercase tracking-widest rounded-xl px-4 py-3 transition-all"
                           >
                             <Plus size={14} /> Nova Comanda
                           </button>
@@ -1034,19 +1191,19 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                 return (
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Selecione a Mesa</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest dash-label">Selecione a Mesa</p>
                       <button
                         type="button"
                         onClick={() => fetchMesasPDV()}
                         aria-label="Atualizar mesas"
-                        className="text-neutral-500 hover:text-emerald-400 transition-colors p-1"
+                        className="dash-label hover:dash-highlight-text transition-colors p-1"
                       >
                         <RefreshCw size={12} className={mesasPDVLoading ? "animate-spin" : ""} />
                       </button>
                     </div>
                     {mesasPDV.length === 0 ? (
-                      <div className="bg-white/[0.02] border border-dashed border-white/10 rounded-xl py-6 text-center">
-                        <p className="text-xs text-neutral-500 font-semibold">Nenhuma mesa configurada.</p>
+                      <div className="dash-muted border border-dashed dash-border rounded-xl py-6 text-center">
+                        <p className="text-xs dash-label font-semibold">Nenhuma mesa configurada.</p>
                         <p className="text-[10px] text-neutral-600 mt-1">Cadastre em Configurações → Mesas.</p>
                       </div>
                     ) : (
@@ -1061,12 +1218,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                               onClick={() => setSelectedMesaId(m.id)}
                               className={`relative flex flex-col items-start gap-1 rounded-xl px-3 py-2.5 border transition-all text-left
                                 ${ocupada
-                                  ? "bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/15"
-                                  : "bg-white/[0.03] border-white/10 hover:border-emerald-500/30 hover:bg-white/[0.05]"}`}
+                                  ? "dash-icon-accent border-[var(--brasa-border)] hover:bg-[var(--brasa-hover)]/15"
+                                  : "dash-muted dash-border hover:border-[var(--brasa-border)] hover:dash-muted"}`}
                             >
                               <div className="flex items-center gap-1.5 w-full">
                                 <div className={`w-1.5 h-1.5 rounded-full ${ocupada ? "bg-emerald-400" : "bg-neutral-600"}`} />
-                                <span className={`text-sm font-black truncate ${ocupada ? "text-emerald-300" : "text-neutral-200"}`}>
+                                <span className={`text-sm font-black truncate ${ocupada ? "text-emerald-300" : "dash-value"}`}>
                                   {m.nome}
                                 </span>
                               </div>
@@ -1075,7 +1232,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
                                   <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-wider flex items-center gap-1">
                                     <Users size={9} /> {m.comandas.length}
                                   </span>
-                                  <span className="text-[10px] font-black tabular-nums text-emerald-400">{fmtBRL(total)}</span>
+                                  <span className="text-[10px] font-black tabular-nums dash-highlight-text">{fmtBRL(total)}</span>
                                 </div>
                               ) : (
                                 <span className="text-[9px] font-bold text-neutral-600 uppercase tracking-wider">Livre</span>
@@ -1096,48 +1253,24 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
           <AnimatePresence initial={false}>
             {!isMounted || items.length === 0 ? (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-center px-6 gap-4 opacity-40">
-                <ShoppingBag size={48} className="text-neutral-500" />
+                <ShoppingBag size={48} className="dash-label" />
                 <div className="space-y-1">
-                  <p className="font-bold text-neutral-300">Aguardando o primeiro item para brilhar!</p>
-                  <p className="text-sm text-neutral-500">Selecione produtos no catálogo.</p>
+                  <p className="font-bold dash-value">Aguardando o primeiro item para brilhar!</p>
+                  <p className="text-sm dash-label">Selecione produtos no catálogo.</p>
                 </div>
               </motion.div>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {items.map(item => (
-                  <motion.li layout key={item.produtoId} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.9 }} className={`group relative bg-white/[0.03] p-5 rounded-[24px] border border-white/5 hover:border-white/10 transition-all ${item.prepared ? 'opacity-40' : 'opacity-100'}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="font-bold text-sm leading-tight text-neutral-200">{item.nome}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                           <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-0.5">
-                              <button
-                                type="button"
-                                aria-label={`Diminuir quantidade de ${item.nome}`}
-                                onClick={() => decrementItem(item.produtoId)}
-                                className="w-9 h-9 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
-                              >
-                                <Minus size={14}/>
-                              </button>
-                              <span aria-live="polite" className="w-8 text-center text-sm font-black tabular-nums text-neutral-200">{item.quantidade}</span>
-                              <button
-                                type="button"
-                                aria-label={`Aumentar quantidade de ${item.nome}`}
-                                onClick={() => incrementItem(item.produtoId)}
-                                className="w-9 h-9 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/10 rounded-md transition-all active:scale-90"
-                              >
-                                <Plus size={14}/>
-                              </button>
-                           </div>
-                           <p className="text-xs text-emerald-500/70 font-bold tabular-nums">{fmt(item.precoCentavos * item.quantidade)}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-3">
-                        <button type="button" aria-label={item.prepared ? `Desmarcar ${item.nome} como preparado` : `Marcar ${item.nome} como preparado`} onClick={() => togglePrepared(item.produtoId)} className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${item.prepared ? 'bg-emerald-500 border-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-white/10 text-transparent hover:border-emerald-500/50'}`}><CheckCircle2 size={16}/></button>
-                        <button type="button" aria-label={`Remover ${item.nome} do carrinho`} onClick={() => removeItem(item.produtoId)} className="text-rose-500/20 hover:text-rose-500 transition-colors p-2"><Trash2 size={18}/></button>
-                      </div>
-                    </div>
-                  </motion.li>
+                  <SwipeCartItem
+                    key={item.produtoId}
+                    item={item}
+                    fmt={fmt}
+                    onIncrement={incrementItem}
+                    onDecrement={decrementItem}
+                    onRemove={removeItem}
+                    onTogglePrepared={togglePrepared}
+                  />
                 ))}
               </ul>
             )}
@@ -1145,155 +1278,161 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
           </div>
         </div>
 
-        <footer className="p-6 pb-10 md:pb-6 bg-[#0B0D11]/60 backdrop-blur-3xl border-t border-white/5 space-y-4 relative z-10 shrink-0">
+        <footer className="p-6 pb-10 md:pb-6 bg-[var(--porcelana)]/90 backdrop-blur-xl border-t dash-border space-y-4 relative z-10 shrink-0">
           <div className="flex flex-col gap-1">
-            <AnimatePresence>
-              {descontoCentavos > 0 && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex items-center justify-between text-rose-400 overflow-hidden mb-1">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Desconto</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold tabular-nums">-{fmt(descontoCentavos)}</span>
-                    <button type="button" aria-label="Remover desconto" onClick={() => setDesconto(0)} className="hover:text-rose-300 p-1"><X size={10}/></button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
             
-            <div className="flex items-center justify-between bg-white/[0.02] p-4 rounded-3xl border border-white/5 shadow-inner">
+            <div className="flex items-center justify-between dash-muted p-4 rounded-3xl border dash-border shadow-inner">
               <div className="flex flex-col items-start gap-0.5">
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-neutral-500">Total</span>
-                {descontoCentavos === 0 && items.length > 0 && (
-                  <button type="button" onClick={() => setDiscountModalOpen(true)} className="text-[9px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest transition-all">+ Cupom</button>
-                )}
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] dash-label">Total</span>
+                <button
+                  type="button"
+                  onClick={() => setDiscountModalOpen(true)}
+                  className="text-[9px] dash-label hover:dash-highlight-text font-bold uppercase tracking-widest transition-all flex items-center gap-1"
+                >
+                  {descontoCentavos > 0 ? (
+                    <span className="text-rose-400 flex items-center gap-1">
+                      -{fmt(descontoCentavos)} <X size={9} onClick={(e) => { e.stopPropagation(); setDesconto(0); }} />
+                    </span>
+                  ) : (
+                    <span>+ Desconto</span>
+                  )}
+                </button>
               </div>
               <div className="flex flex-col items-end">
                 {descontoCentavos > 0 && <span className="text-[10px] text-neutral-600 line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
-                <span className="text-4xl font-black text-emerald-400 tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                <span className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
                   {isMounted ? fmt(total) : 'R$ 0,00'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
-            {paymentMethods.map(m => (
-              <button 
-                type="button" 
-                key={m.value} 
-                onClick={() => resetForm({ pagamento: m.value })} 
-                className={`
-                  flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-300
-                  ${pagamentoType === m.value 
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_5px_20px_rgba(16,185,129,0.1)] scale-[1.02]' 
-                    : 'border-white/5 bg-white/[0.03] text-neutral-500 hover:border-white/10 hover:bg-white/[0.05] grayscale opacity-60 hover:grayscale-0 hover:opacity-100'}
-                `}
-              >
-                <m.icon size={18}/>
-                <span className="text-[8px] font-black mt-1.5 uppercase tracking-[0.1em]">{m.label}</span>
-              </button>
-            ))}
+          {/* ─── Split Payment Header ─── */}
+          <div className="grid grid-cols-3 gap-2 dash-muted border dash-border rounded-2xl p-3">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[8px] font-black uppercase tracking-widest dash-label">Total</span>
+              <span className="text-base font-black tabular-nums tracking-tighter dash-value">{fmt(total)}</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 border-x dash-border">
+              <span className="text-[8px] font-black uppercase tracking-widest dash-label">Pago</span>
+              <span className={`text-base font-black tabular-nums tracking-tighter ${splitPago > 0 ? 'dash-highlight-text' : 'dash-subtitle'}`}>{fmt(splitPago)}</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[8px] font-black uppercase tracking-widest dash-label">Restante</span>
+              <span className={`text-base font-black tabular-nums tracking-tighter ${splitRestante === 0 ? 'dash-highlight-text' : 'text-rose-400'}`}>
+                {splitRestante === 0 && splitTroco > 0 ? `+${fmt(splitTroco)}` : fmt(splitRestante)}
+              </span>
+            </div>
           </div>
 
-          <AnimatePresence>
-            {pagamentoType === 'DINHEIRO' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-2 overflow-hidden">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500 ml-1">Recebido</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      {...register("valorRecebido")}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-xl font-black focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-800"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 items-end justify-end">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-600 mr-1">Troco</span>
-                    <span className={`text-2xl font-black tabular-nums tracking-tighter leading-none ${troco > 0 ? 'text-amber-400' : 'text-neutral-700'}`}>
-                      {fmt(troco)}
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[10, 20, 50, 100].map(val => (
-                    <button type="button" key={val} onClick={() => setValue("valorRecebido", val)} className="bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg py-2 text-[10px] font-black text-neutral-400 transition-all active:scale-95">R$ {val}</button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+          {/* ─── Split Input + Method Buttons ─── */}
+          <div className="flex flex-col gap-2">
+            <input
+              ref={splitInputRef}
+              type="number"
+              step="0.01"
+              inputMode="decimal"
+              placeholder={splitRestante > 0 ? (splitRestante / 100).toFixed(2) : "0,00"}
+              value={splitInputValor}
+              onChange={e => setSplitInputValor(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSplitPagamento(pagamentoType); } }}
+              className="w-full h-14 dash-muted border dash-border rounded-2xl px-5 text-2xl font-black text-center focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:dash-subtitle tabular-nums"
+            />
+            <div className="grid grid-cols-4 gap-2">
+              {paymentMethods.map(m => (
+                <button
+                  type="button"
+                  key={m.value}
+                  onClick={() => addSplitPagamento(m.value)}
+                  className="flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-150 dash-border dash-muted dash-label hover:border-[var(--brasa-border)] hover:dash-value active:scale-95"
+                >
+                  <m.icon size={18}/>
+                  <span className="text-[8px] font-black mt-1 uppercase tracking-[0.08em]">{m.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Quick amounts for cash */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[10, 20, 50, 100].map(val => (
+                <button
+                  type="button"
+                  key={val}
+                  onClick={() => { setSplitInputValor(String(val)); }}
+                  className="dash-muted hover:dash-muted border dash-border rounded-lg py-2 text-[10px] font-black dash-label transition-all active:scale-95"
+                >
+                  R$ {val}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {pagamentoType === 'MISTO' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="flex flex-col gap-3 overflow-hidden">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500">Pix</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      {...register("valorPix")}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-lg font-black focus:border-emerald-500 focus:bg-white/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500">Dinheiro</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      {...register("valorDinheiro")}
-                      className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-lg font-black focus:border-emerald-500 focus:bg-white/10 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-                  <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-neutral-600">Restante</span>
-                    <span className={`text-xl font-black tabular-nums tracking-tighter ${faltaMisto === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {fmt(faltaMisto)}
-                    </span>
-                  </div>
-                  {trocoMisto > 0 && (
-                    <div className="flex flex-col items-end">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-amber-500">Troco</span>
-                      <span className="text-xl font-black tabular-nums tracking-tighter text-amber-400">
-                        {fmt(trocoMisto)}
-                      </span>
+          {/* ─── Split List ─── */}
+          <AnimatePresence>
+            {splitPagamentos.length > 0 && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="flex flex-col gap-1.5 overflow-hidden"
+              >
+                {splitPagamentos.map((p, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 8 }}
+                    className="flex items-center justify-between dash-muted border dash-border rounded-xl px-4 py-2.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-black uppercase tracking-widest dash-label">{p.metodo.replace('_', ' ')}</span>
                     </div>
-                  )}
-                </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-black tabular-nums dash-value">{fmt(p.valorCentavos)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSplitPagamento(i)}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center dash-label hover:text-rose-400 transition-colors"
+                      >
+                        <X size={12}/>
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </motion.div>
             )}
           </AnimatePresence>
 
           <div className="flex gap-3">
-            <button 
+            <button
               type="button"
-              onClick={handleSaveToComanda} 
-              disabled={items.length === 0} 
-              className="flex-1 h-12 bg-transparent border border-white/5 hover:bg-white/5 disabled:opacity-20 text-neutral-500 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+              onClick={handleSaveToComanda}
+              disabled={items.length === 0}
+              className="flex-1 h-12 bg-transparent border dash-border hover:dash-muted disabled:opacity-20 dash-label rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
             >
               Salvar Pedido <ClipboardList size={14}/>
             </button>
           </div>
 
-          <button 
-            type="submit" 
-            disabled={items.length === 0 || !pagamentoType || (pagamentoType === 'DINHEIRO' && valorRecebido < total) || (pagamentoType === 'MISTO' && !isMistoValid) || mutation.isPending || !isTurnoAberto} 
+          <motion.button
+            type="submit"
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            disabled={items.length === 0 || !isSplitValid || mutation.isPending || !isTurnoAberto}
             className="
-              w-full h-16 bg-emerald-600 hover:bg-emerald-500 disabled:bg-neutral-900 disabled:text-neutral-700 
-              text-white rounded-2xl font-black text-lg shadow-[0_15px_40px_rgba(16,185,129,0.15)] 
-              active:scale-[0.98] transition-all flex items-center justify-center gap-3 relative overflow-hidden group
+              w-full h-[72px] bg-[var(--brasa)] hover:bg-[var(--brasa-hover)]
+              disabled:opacity-40 disabled:cursor-not-allowed
+              text-white rounded-3xl font-black text-xl
+              shadow-[0_8px_32px_rgba(211,84,0,0.35)]
+              hover:shadow-[0_12px_40px_rgba(211,84,0,0.45)]
+              transition-all flex items-center justify-center gap-3 relative overflow-hidden group
             "
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite] pointer-events-none" />
-            {mutation.isPending ? <Loader2 className="animate-spin"/> : <><CheckCircle2 size={20}/> Receber / Finalizar</>}
-          </button>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+            {mutation.isPending
+              ? <><Loader2 className="animate-spin" size={22}/> <span>Processando...</span></>
+              : <><CheckCircle2 size={22}/> <span>Receber {items.length > 0 ? fmt(total) : ''}</span></>
+            }
+          </motion.button>
 
           {mutation.isError && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-red-400 bg-red-950/20 p-4 rounded-2xl border border-red-500/20 flex items-center gap-2 text-xs font-bold mt-2">
@@ -1306,7 +1445,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
       {/* Botão flutuante do carrinho no Mobile */}
       {items.length > 0 && (
-        <button onClick={() => setCartOpen(true)} className="md:hidden fixed bottom-[max(calc(env(safe-area-inset-bottom)+72px),5.5rem)] left-4 right-4 z-[110] bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl h-14 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
+        <button onClick={() => setCartOpen(true)} className="md:hidden fixed bottom-[max(calc(env(safe-area-inset-bottom)+72px),5.5rem)] left-4 right-4 z-[110] bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] dash-value rounded-2xl h-14 flex items-center justify-between px-6 shadow-[0_10px_40px_rgba(16,185,129,0.3)] active:scale-[0.98] transition-all">
           <div className="flex items-center gap-3">
             <ShoppingCart size={20} />
             <span className="font-bold text-sm">{isMounted ? items.length : 0} {items.length === 1 ? 'item' : 'itens'}</span>
@@ -1322,48 +1461,65 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
         {comandaModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setComandaModalOpen(false)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-[#13161A] w-full max-w-md p-8 rounded-3xl border border-white/10 relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90dvh] overflow-y-auto">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="dash-card w-full max-w-md p-8 rounded-3xl border dash-border relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90dvh] overflow-y-auto">
               <h2 className="text-2xl font-black mb-6 tracking-tighter">Nomear Pedido</h2>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Nome do Cliente</label>
-                  <input autoFocus type="text" value={comandaName} onChange={(e) => setComandaName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmSaveComanda()} placeholder="Ex: João Silva" className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 text-xl font-bold focus:border-emerald-500 focus:bg-white/10 outline-none transition-all placeholder:text-neutral-700"/>
+                  <label className="text-[10px] font-black uppercase tracking-widest dash-label">Nome do Cliente</label>
+                  <input autoFocus type="text" value={comandaName} onChange={(e) => setComandaName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && confirmSaveComanda()} placeholder="Ex: João Silva" className="w-full h-16 dash-muted border dash-border rounded-2xl px-6 text-xl font-bold focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:dash-subtitle"/>
                 </div>
-                <button onClick={confirmSaveComanda} className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-emerald-600/20 mt-4">SALVAR PEDIDO</button>
+                <button onClick={confirmSaveComanda} className="w-full h-16 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] dash-value rounded-2xl font-black text-lg transition-all shadow-xl shadow-[0_4px_12px_rgba(211,84,0,0.15)] mt-4">SALVAR PEDIDO</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
+      {/* ─── CHANGE OVERLAY ─── */}
       <AnimatePresence>
-        {successModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setSuccessModalOpen(false)} />
-            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} className="bg-[#13161A] w-full max-w-md p-8 rounded-3xl border border-white/10 relative shadow-[0_0_80px_rgba(16,185,129,0.3)] flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto">
-              <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
-                <CheckCircle2 size={40} className="text-emerald-400" />
-              </div>
-              <h2 className="text-2xl font-black mb-2 tracking-tighter">Venda Finalizada!</h2>
-              <p className="text-neutral-400 mb-8">Total de {fmt(lastSaleTotal)} registrado no caixa.</p>
-              
-              <div className="w-full space-y-3">
-                <button onClick={() => {
-                  const itemsText = lastSaleItems.map(i => `${i.quantidade}x ${i.nome}`).join(", ");
-                  const text = `${nomeLoja} - Recibo da sua compra:\n${itemsText}\n\nTotal: ${fmt(lastSaleTotal)}`;
-                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                  setSuccessModalOpen(false);
-                }} className="w-full h-14 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                  <MessageCircle size={18} /> Enviar WhatsApp
-                </button>
-                <button onClick={() => { showToast("Impressão via Bluetooth não configurada.", "error"); setSuccessModalOpen(false); }} className="w-full h-14 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                  <Printer size={18} /> Imprimir Recibo
-                </button>
-              </div>
-              
-              <button onClick={() => setSuccessModalOpen(false)} className="mt-6 text-[10px] text-neutral-500 font-black uppercase tracking-widest hover:text-neutral-300 transition-colors p-2">Voltar ao PDV</button>
+        {changeOverlay && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[150] flex flex-col items-center justify-center cursor-pointer select-none"
+            style={{ backgroundColor: "var(--ink)", backdropFilter: "blur(4px)" }}
+            onClick={() => {
+              if (changeOverlayTimerRef.current) clearTimeout(changeOverlayTimerRef.current);
+              clearCart();
+              setCartOpen(false);
+              resetForm();
+              setChangeOverlay(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 24 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 24 }}
+              transition={{ type: "spring", stiffness: 320, damping: 24 }}
+              className="flex flex-col items-center gap-4"
+            >
+              <p
+                className="font-black uppercase tracking-widest"
+                style={{ fontSize: "clamp(14px, 3vw, 18px)", color: "var(--brasa)", letterSpacing: "0.25em", opacity: 0.8 }}
+              >
+                TROCO
+              </p>
+              <p
+                className="font-black tabular-nums leading-none"
+                style={{ fontSize: "clamp(72px, 18vw, 160px)", color: "var(--brasa)", letterSpacing: "-0.04em", lineHeight: 1 }}
+              >
+                {fmtBRL(changeOverlay.troco)}
+              </p>
+              <p
+                className="font-bold"
+                style={{ fontSize: "clamp(12px, 2vw, 14px)", color: "rgba(255,255,255,0.35)", marginTop: "8px" }}
+              >
+                Toque para continuar
+              </p>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
       <AnimatePresence>
@@ -1374,6 +1530,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, insights, lowStockItems,
 
       {/* ─── SALE DETAIL SHEET ─── */}
       <SaleDetailSheet sale={selectedSale} onClose={() => setSelectedSale(null)} />
+
+      {/* ─── RECEIPT MODAL ─── */}
+      <ReceiptModal
+        isOpen={receiptOpen}
+        data={receiptData}
+        onClose={() => setReceiptOpen(false)}
+      />
     </div>
   );
 }

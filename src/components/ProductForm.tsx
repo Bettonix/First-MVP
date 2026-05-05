@@ -13,8 +13,8 @@ interface ProductFormProps {
   submitLabel?: string;
 }
 
-const inputClass = "w-full py-4 px-5 bg-neutral-800 text-neutral-100 text-lg font-bold placeholder:text-neutral-500 border border-white/10 rounded-2xl outline-none transition-all duration-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10";
-const labelClass = "text-[11px] font-black text-neutral-400 uppercase tracking-[0.2em] mb-2 block ml-1";
+const inputClass = "w-full py-4 px-5 dash-input text-lg font-bold rounded-2xl outline-none transition-all duration-200 focus:ring-2 focus:ring-[var(--brasa)]/20";
+const labelClass = "text-[11px] font-black dash-label uppercase tracking-[0.2em] mb-2 block ml-1";
 const errorClass = "text-rose-400 text-xs font-bold mt-2 ml-1 flex items-center gap-1";
 
 export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }: ProductFormProps) {
@@ -88,12 +88,12 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
         </div>
       </div>
 
-      <label htmlFor="isFavorito" className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5 cursor-pointer hover:bg-white/10 transition-all active:scale-[0.99]">
+      <label htmlFor="isFavorito" className="flex items-center gap-4 p-4 dash-muted rounded-2xl border dash-border cursor-pointer dash-row-hover transition-all active:scale-[0.99]">
         <input type="checkbox" {...register("isFavorito")} id="isFavorito" className="sr-only peer" />
-        <div className="w-6 h-6 rounded-lg border-2 border-white/20 flex items-center justify-center peer-checked:bg-amber-500 peer-checked:border-amber-500 transition-all shadow-inner">
+        <div className="w-6 h-6 rounded-lg border-2 border-[var(--border-md)] flex items-center justify-center peer-checked:bg-[var(--brasa)] peer-checked:border-[var(--brasa)] transition-all shadow-inner">
           <Star size={14} className="text-white opacity-0 peer-checked:opacity-100 fill-current" />
         </div>
-        <span className="text-sm font-black text-neutral-300 uppercase tracking-wider">Fixar no topo (Favorito)</span>
+        <span className="text-sm font-black dash-value uppercase tracking-wider">Fixar no topo (Favorito)</span>
       </label>
 
       <button type="submit" disabled={isPending} className="mt-4 w-full h-16 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:bg-neutral-800 disabled:text-neutral-600 text-white rounded-[20px] font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.98] shadow-[0_20px_40px_rgba(16,185,129,0.2)]">

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getTenantIdOrRedirect } from "@/lib/auth";
+import { getTenantIdOrRedirect, requireGerente } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ export type ProdutoInput = z.infer<typeof produtoSchema>;
 export async function criarProduto(
   input: ProdutoInput
 ): Promise<{ id: string } | { error: string }> {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   const parsed = produtoSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -53,7 +53,7 @@ export async function editarProduto(
   id: string,
   input: ProdutoInput
 ): Promise<{ ok: true } | { error: string }> {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   const parsed = produtoSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -73,7 +73,7 @@ export async function editarProduto(
 export async function excluirProduto(
   id: string
 ): Promise<{ ok: true } | { error: string }> {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
 
   const exists = await prisma.produto.findFirst({ where: { id: BigInt(id), tenantId }, select: { id: true } });
   if (!exists) return { error: "Produto não encontrado." };
@@ -195,7 +195,7 @@ export async function getNomeLoja(): Promise<string> {
 export async function updateNomeLoja(
   nomeLoja: string
 ): Promise<{ ok: true } | { error: string }> {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   if (!nomeLoja.trim()) return { error: "Nome não pode ser vazio." };
 
   await prisma.vendedor.update({
@@ -205,5 +205,30 @@ export async function updateNomeLoja(
 
   revalidatePath("/settings");
   revalidatePath("/");
+  return { ok: true };
+}
+
+export async function getInstagramUrl(): Promise<string> {
+  const tenantId = await getTenantIdOrRedirect();
+  const vendedor = await prisma.vendedor.findUnique({
+    where: { id: tenantId },
+    select: { instagramUrl: true },
+  });
+  return vendedor?.instagramUrl ?? "";
+}
+
+export async function updateInstagramUrl(
+  url: string
+): Promise<{ ok: true } | { error: string }> {
+  const { tenantId } = await requireGerente();
+  const trimmed = url.trim();
+  if (trimmed && !trimmed.startsWith("https://")) {
+    return { error: "URL deve começar com https://" };
+  }
+  await prisma.vendedor.update({
+    where: { id: tenantId },
+    data: { instagramUrl: trimmed || null },
+  });
+  revalidatePath("/settings");
   return { ok: true };
 }

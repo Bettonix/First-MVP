@@ -86,8 +86,8 @@ export function PremiumSelect({ options, value, onChange, className, onBlur }: P
         zIndex:   9999,
       }}
       className="
-        bg-white dark:bg-[#13161A]
-        border border-slate-200 dark:border-white/10
+        bg-[var(--porcelana)]
+        border dash-border
         rounded-2xl shadow-2xl shadow-slate-300/40 dark:shadow-black/60
         overflow-y-auto overscroll-contain
         py-1
@@ -105,7 +105,7 @@ export function PremiumSelect({ options, value, onChange, className, onBlur }: P
             transition-colors duration-100
             ${value === opt
               ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
-              : "text-slate-800 dark:text-neutral-200 hover:bg-slate-50 dark:hover:bg-white/5"
+              : "dash-value dash-row-hover"
             }
           `}
         >
@@ -127,7 +127,7 @@ export function PremiumSelect({ options, value, onChange, className, onBlur }: P
         <span className="truncate">{value}</span>
         <ChevronDown
           size={16}
-          className={`shrink-0 text-neutral-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          className={`shrink-0 dash-label transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
 

@@ -101,8 +101,8 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
           className={`
             p-2.5 rounded-xl transition-colors duration-150
             ${menuOpen
-              ? 'bg-white/10 text-neutral-100'
-              : 'hover:bg-white/5 active:bg-white/10 text-neutral-400 hover:text-neutral-200'
+              ? 'dash-pill-active'
+              : 'dash-pill-inactive hover:dash-value'
             }
           `}
         >
@@ -116,12 +116,12 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: -6 }}
               transition={{ duration: 0.13, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute right-0 top-full mt-2 z-50 min-w-[190px] bg-[#1C2028] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+              className="absolute right-0 top-full mt-2 z-50 min-w-[190px] dash-card border dash-border rounded-2xl shadow-lg overflow-hidden"
             >
               {!isTurnoAberto ? (
                 <button
                   onClick={() => openAction('ABRIR')}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-emerald-400 hover:bg-white/5 transition-colors duration-100"
+                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold dash-highlight-text dash-row-hover transition-colors duration-100"
                 >
                   <Unlock size={15} />
                   Abrir Caixa
@@ -130,14 +130,14 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
                 <>
                   <button
                     onClick={() => openAction('SANGRIA')}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-neutral-300 hover:bg-white/5 transition-colors duration-100"
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold dash-value dash-row-hover transition-colors duration-100"
                   >
                     <ArrowUpFromLine size={15} className="text-rose-400" />
                     Sangria
                   </button>
                   <button
                     onClick={() => openAction('REFORCO')}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-neutral-300 hover:bg-white/5 transition-colors duration-100"
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold dash-value dash-row-hover transition-colors duration-100"
                   >
                     <ArrowDownToLine size={15} className="text-emerald-400" />
                     Reforço

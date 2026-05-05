@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getTenantIdOrRedirect } from "@/lib/auth";
+import { getTenantIdOrRedirect, requireGerente } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export interface MesaRow {
@@ -26,7 +26,7 @@ export async function getMesas(): Promise<MesaRow[]> {
 }
 
 export async function criarMesasEmLote(quantidade: number, prefixo: string) {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   if (quantidade < 1 || quantidade > 200) {
     return { error: "Quantidade deve ser entre 1 e 200." };
   }
@@ -41,7 +41,7 @@ export async function criarMesasEmLote(quantidade: number, prefixo: string) {
 }
 
 export async function updateMesa(id: string, nome: string) {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   await prisma.mesa.updateMany({
     where: { id: BigInt(id), tenantId },
     data: { nome },
@@ -63,7 +63,7 @@ export async function toggleMesa(id: string, ativa: boolean) {
 }
 
 export async function deleteMesa(id: string) {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   await prisma.mesa.deleteMany({ where: { id: BigInt(id), tenantId } });
   revalidatePath("/settings");
   revalidatePath("/dashboard/comandas");
@@ -71,7 +71,7 @@ export async function deleteMesa(id: string) {
 }
 
 export async function deleteTodasMesas() {
-  const tenantId = await getTenantIdOrRedirect();
+  const { tenantId } = await requireGerente();
   await prisma.mesa.deleteMany({ where: { tenantId } });
   revalidatePath("/settings");
   revalidatePath("/dashboard/comandas");

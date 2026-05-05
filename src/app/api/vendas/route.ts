@@ -12,12 +12,14 @@ const cartItemSchema = z.object({
   precoCentavos: z.number().int().positive(),
 });
 
+const splitPagamentoSchema = z.object({
+  metodo: z.enum(['PIX', 'DINHEIRO', 'CARTAO_CREDITO', 'CARTAO_DEBITO']),
+  valorCentavos: z.number().int().positive(),
+});
+
 const registrarVendaSchema = z.object({
   cart: z.array(cartItemSchema).min(1),
-  pagamento: z.object({
-    tipo: z.enum(['PIX', 'DINHEIRO', 'MISTO']),
-    pixId: z.string().optional(),
-  }),
+  pagamentos: z.array(splitPagamentoSchema).min(1),
 });
 
 export async function POST(req: NextRequest) {
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     const output = await registrarVendaUseCase.execute({
       tenantId,
       cart: result.data.cart,
-      pagamento: result.data.pagamento,
+      pagamentos: result.data.pagamentos,
     });
 
     // Invalida o cache das agregações analíticas do Dashboard instantaneamente

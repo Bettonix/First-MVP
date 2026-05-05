@@ -1,4 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+
+export interface DashboardFilters {
+  metodo?: string;   // "PIX" | "DINHEIRO" | "MISTO" | undefined = todos
+  categoria?: string; // nome da categoria de produto
+}
 
 export class AnalyticsService {
   /**
@@ -136,5 +142,136 @@ export class AnalyticsService {
       currentVolumeCentavos: Number(row?.current_volume || 0),
       baseVolumeCentavos: Number(row?.base_volume || 0),
     };
+  }
+
+  /**
+   * KPIs unificados com filtro de método de pagamento.
+   * Uma única query retorna: total, contagem, ticket médio.
+   */
+  async getPeriodStats(tenantId: string, startDate: Date, filters: DashboardFilters = {}) {
+    const metodoFilter = filters.metodo
+      ? Prisma.sql`AND "metodoPagto" = ${filters.metodo}`
+      : Prisma.empty;
+
+    const rawData = await prisma.$queryRaw`
+      SELECT
+        CAST(COALESCE(SUM("totalCentavos"), 0) AS BIGINT)   AS total,
+        CAST(COUNT(*)                          AS INTEGER)  AS qtd,
+        CAST(COALESCE(AVG("totalCentavos"), 0) AS BIGINT)   AS ticket_medio
+      FROM "Venda"
+      WHERE tenant_id = ${tenantId}
+        AND "criadoEm" >= ${startDate}
+        ${metodoFilter};
+    `;
+    const row = (rawData as any[])[0];
+    return {
+      totalCentavos:       Number(row?.total        ?? 0),
+      qtdPedidos:          Number(row?.qtd          ?? 0),
+      ticketMedioCentavos: Number(row?.ticket_medio ?? 0),
+    };
+  }
+
+  /**
+   * Faturamento diário com filtro de método.
+   */
+  async getRevenueByDayFiltered(tenantId: string, startDate: Date, filters: DashboardFilters = {}) {
+    const metodoFilter = filters.metodo
+      ? Prisma.sql`AND "metodoPagto" = ${filters.metodo}`
+      : Prisma.empty;
+
+    const rawData = await prisma.$queryRaw`
+      SELECT
+        date_trunc('day', "criadoEm") AS day,
+        CAST(SUM("totalCentavos") AS INTEGER) AS total
+      FROM "Venda"
+      WHERE tenant_id = ${tenantId}
+        AND "criadoEm" >= ${startDate}
+        ${metodoFilter}
+      GROUP BY day
+      ORDER BY day ASC;
+    `;
+    return (rawData as any[]).map((r) => ({
+      date: new Date(r.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      totalCentavos: Number(r.total),
+    }));
+  }
+
+  /**
+   * Distribuição de pagamentos com filtro de método.
+   */
+  async getPaymentDistributionFiltered(tenantId: string, startDate: Date, filters: DashboardFilters = {}) {
+    const metodoFilter = filters.metodo
+      ? Prisma.sql`AND "metodoPagto" = ${filters.metodo}`
+      : Prisma.empty;
+
+    const rawData = await prisma.$queryRaw`
+      SELECT
+        "metodoPagto",
+        COUNT(*)::INTEGER AS quantidade,
+        CAST(SUM("totalCentavos") AS INTEGER) AS total
+      FROM "Venda"
+      WHERE tenant_id = ${tenantId}
+        AND "criadoEm" >= ${startDate}
+        ${metodoFilter}
+      GROUP BY "metodoPagto"
+      ORDER BY total DESC;
+    `;
+    return (rawData as any[]).map((r) => ({
+      metodo:         r.metodoPagto as string,
+      quantidade:     Number(r.quantidade),
+      totalCentavos:  Number(r.total),
+    }));
+  }
+
+  /**
+   * Top produtos com filtro de categoria e método.
+   * Categoria é filtrada via JOIN no JSONB de itens.
+   */
+  async getTopProductsFiltered(tenantId: string, startDate: Date, filters: DashboardFilters = {}) {
+    const metodoFilter = filters.metodo
+      ? Prisma.sql`AND v."metodoPagto" = ${filters.metodo}`
+      : Prisma.empty;
+
+    const categoriaFilter = filters.categoria
+      ? Prisma.sql`AND item->>'categoria' = ${filters.categoria}`
+      : Prisma.empty;
+
+    const rawData = await prisma.$queryRaw`
+      SELECT
+        item->>'nome'      AS product_name,
+        item->>'categoria' AS categoria,
+        CAST(SUM(CAST(item->>'quantidade'    AS INTEGER))                                          AS INTEGER) AS total_sold,
+        CAST(SUM(CAST(item->>'precoCentavos' AS INTEGER) * CAST(item->>'quantidade' AS INTEGER))   AS INTEGER) AS total_revenue
+      FROM "Venda" v, jsonb_array_elements(v.itens) AS item
+      WHERE v.tenant_id = ${tenantId}
+        AND v."criadoEm" >= ${startDate}
+        ${metodoFilter}
+        ${categoriaFilter}
+      GROUP BY item->>'nome', item->>'categoria'
+      ORDER BY total_revenue DESC
+      LIMIT 10;
+    `;
+    return (rawData as any[]).map((row) => ({
+      nome:                row.product_name   as string,
+      categoria:           row.categoria      as string | null,
+      quantidadeTotal:     Number(row.total_sold),
+      receitaTotalCentavos: Number(row.total_revenue),
+    }));
+  }
+
+  /**
+   * Lista de categorias disponíveis no período (para o filtro).
+   */
+  async getCategorias(tenantId: string, startDate: Date): Promise<string[]> {
+    const rawData = await prisma.$queryRaw`
+      SELECT DISTINCT item->>'categoria' AS categoria
+      FROM "Venda" v, jsonb_array_elements(v.itens) AS item
+      WHERE v.tenant_id = ${tenantId}
+        AND v."criadoEm" >= ${startDate}
+        AND item->>'categoria' IS NOT NULL
+        AND item->>'categoria' != ''
+      ORDER BY categoria ASC;
+    `;
+    return (rawData as any[]).map((r) => r.categoria as string).filter(Boolean);
   }
 }

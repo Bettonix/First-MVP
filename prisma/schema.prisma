@@ -9,21 +9,33 @@ generator client {
 /// Espelho do auth.users do Supabase no schema public.
 /// O `id` é o UUID gerado pelo Supabase Auth — NÃO autoincrement.
 /// Populado automaticamente pela trigger `handle_new_user` no Supabase.
+/// `vendedorId` é nulo para o gerente (dono) e preenchido para operadores.
 model Profile {
-  id        String   @id              // auth.users.id (UUID)
-  email     String   @unique
-  name      String?
-  avatarUrl String?  @map("avatar_url")
-  createdAt DateTime @default(now())  @map("created_at")
+  id         String   @id              // auth.users.id (UUID)
+  email      String   @unique
+  name       String?
+  avatarUrl  String?  @map("avatar_url")
+  role       String   @default("GERENTE") // GERENTE | OPERADOR
+  vendedorId String?  @map("vendedor_id") // null = é o próprio gerente; preenchido = operador vinculado
+  createdAt  DateTime @default(now())  @map("created_at")
 
+  vendedor   Vendedor? @relation(fields: [vendedorId], references: [id], onDelete: Cascade)
+
+  @@index([vendedorId])
   @@map("profiles")
 }
 
 model Vendedor {
-  id        String   @id @default(cuid()) @map("tenant_id") // Atua como Tenant ID
-  authId    String   @unique // ID gerado pelo Supabase Auth (= Profile.id)
-  nomeLoja  String
-  criadoEm  DateTime @default(now())
+  id                String   @id @default(cuid()) @map("tenant_id") // Atua como Tenant ID
+  authId            String   @unique // ID gerado pelo Supabase Auth (= Profile.id)
+  nomeLoja          String
+  nicho             String   @default("outros")
+  metodosPagamento  String[] @default([])
+  criadoEm          DateTime @default(now())
+  pinGerente        String?  @map("pin_gerente")
+  instagramUrl      String?  @map("instagram_url")
+
+  operadores        Profile[]
 
   @@index([authId])
 }
@@ -99,10 +111,12 @@ model Produto {
   estoqueMinimo       Int      @default(0)      @map("estoque_minimo")
   gerenciarEstoque    Boolean  @default(true)   @map("gerenciar_estoque")
   isFavorito          Boolean  @default(true)
+  ativo               Boolean  @default(true)
 
   movimentacoes       MovimentacaoEstoque[]
 
   @@index([tenantId, isFavorito])
+  @@index([tenantId, ativo])
 }
 
 /// Histórico de auditoria de estoque (ENTRADA, SAIDA, AJUSTE).
@@ -121,19 +135,35 @@ model MovimentacaoEstoque {
 }
 
 model Venda {
-  id              BigInt    @id @default(autoincrement())
-  tenantId        String    @map("tenant_id")
+  id              BigInt      @id @default(autoincrement())
+  tenantId        String      @map("tenant_id")
   turnoId         BigInt
-  turno           Turno     @relation(fields: [turnoId], references: [id])
-  
+  turno           Turno       @relation(fields: [turnoId], references: [id])
+
   totalCentavos   Int
+  /// Resumo do método principal (PIX | DINHEIRO | CARTAO | MISTO) — mantido para compatibilidade com analytics
   metodoPagto     String
   pixId           String?
-  
-  itens           Json      
+
+  itens           Json
+  pagamentos      Pagamento[]
 
   criadoEm        DateTime  @default(now())
 
   @@index([tenantId, turnoId, criadoEm])
   @@index([tenantId, metodoPagto])
+  @@index([tenantId, criadoEm])
+}
+
+/// Detalhe de cada split de pagamento de uma Venda.
+/// Uma venda pode ter N pagamentos (ex: R$20 PIX + R$30 DINHEIRO).
+model Pagamento {
+  id            BigInt   @id @default(autoincrement())
+  vendaId       BigInt   @map("venda_id")
+  venda         Venda    @relation(fields: [vendaId], references: [id], onDelete: Cascade)
+  metodo        String   // PIX | DINHEIRO | CARTAO_CREDITO | CARTAO_DEBITO
+  valorCentavos Int      @map("valor_centavos")
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  @@index([vendaId])
 }

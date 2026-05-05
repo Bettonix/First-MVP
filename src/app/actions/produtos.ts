@@ -73,7 +73,7 @@ export async function createProduto(data: ProdutoFormData) {
 export async function getProdutosPDV() {
   const tenantId = await getTenantIdOrRedirect();
   const produtos = await prisma.produto.findMany({
-    where: { tenantId },
+    where: { tenantId, ativo: true },
     orderBy: { nome: 'asc' }
   });
 
@@ -86,7 +86,53 @@ export async function getProdutosPDV() {
     estoqueAtual: p.estoqueAtual,
     estoqueInicial: p.estoqueInicial,
     isFavorito: p.isFavorito,
+    ativo: p.ativo,
   }));
+}
+
+// ─── READ (Catálogo Admin — todos, incluindo inativos) ────────────
+
+export async function getProdutosCatalogo() {
+  const tenantId = await getTenantIdOrRedirect();
+  const produtos = await prisma.produto.findMany({
+    where: { tenantId },
+    orderBy: [{ ativo: 'desc' }, { nome: 'asc' }],
+  });
+
+  return produtos.map((p) => ({
+    id: p.id.toString(),
+    nome: p.nome,
+    precoCentavos: p.precoCentavos,
+    precoCustoCentavos: p.precoCustoCentavos,
+    categoria: p.categoria,
+    estoqueAtual: p.estoqueAtual,
+    estoqueInicial: p.estoqueInicial,
+    isFavorito: p.isFavorito,
+    ativo: p.ativo,
+  }));
+}
+
+// ─── TOGGLE ATIVO (Soft enable/disable) ──────────────────────────
+
+export async function toggleProdutoAtivo(produtoId: string, ativo: boolean) {
+  const tenantId = await getTenantIdOrRedirect();
+
+  try {
+    const id = BigInt(produtoId);
+
+    const produto = await prisma.produto.findFirst({ where: { id, tenantId } });
+    if (!produto) return { success: false as const, error: "Produto não encontrado." };
+
+    await prisma.produto.update({ where: { id }, data: { ativo } });
+
+    revalidatePath("/dashboard/produtos");
+    revalidatePath("/");
+    revalidateTag('products', 'max');
+
+    return { success: true as const };
+  } catch (error: any) {
+    return { success: false as const, error: error.message || "Erro ao atualizar." };
+  }
 }
 
 // ─── UPDATE ──────────────────────────────────────────────────────
@@ -151,7 +197,7 @@ export async function updateProduto(produtoId: string, data: ProdutoFormData) {
   }
 }
 
-// ─── DELETE ──────────────────────────────────────────────────────
+// ─── DELETE (Soft Delete — preserva histórico de vendas) ─────────
 
 export async function deleteProduto(produtoId: string) {
   const tenantId = await getTenantIdOrRedirect();
@@ -164,18 +210,13 @@ export async function deleteProduto(produtoId: string) {
       return { success: false as const, error: "ID de produto inválido." };
     }
 
-    // Security: ensure the product belongs to this tenant
-    const produto = await prisma.produto.findFirst({
-      where: { id, tenantId }
-    });
-
+    const produto = await prisma.produto.findFirst({ where: { id, tenantId } });
     if (!produto) {
       return { success: false as const, error: "Produto não encontrado ou sem permissão." };
     }
 
-    await prisma.produto.delete({
-      where: { id }
-    });
+    // Soft delete: marca como inativo em vez de remover fisicamente
+    await prisma.produto.update({ where: { id }, data: { ativo: false } });
 
     revalidatePath("/dashboard/produtos");
     revalidatePath("/");

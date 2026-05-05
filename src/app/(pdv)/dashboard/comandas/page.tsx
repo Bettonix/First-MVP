@@ -49,7 +49,7 @@ function MesaCard({ mesa, onClick }: { mesa: MesaComComanda; onClick: () => void
         hover:scale-[1.03] hover:shadow-lg group
         ${ocupada
           ? "bg-emerald-500/8 border-emerald-500/40 shadow-[inset_0_0_0_1.5px_rgba(16,185,129,0.35)]"
-          : "dash-card border-white/[0.06] hover:border-emerald-500/20 hover:shadow-emerald-500/5"
+          : "dash-card hover:border-[var(--brasa-border)]"
         }`}
     >
       {/* Status dot */}
@@ -226,7 +226,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
 
   const content = (
     <div className="fixed inset-0 z-[9000]" style={{ isolation: "isolate" }}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       <div className="absolute right-0 top-0 h-full w-full max-w-[480px] dash-card border-l dash-border flex flex-col shadow-2xl">
         {/* Header */}
@@ -270,7 +270,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
             <button
               onClick={() => handleAbrir()}
               disabled={isPending}
-              className="h-12 px-8 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-2xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
+              className="h-12 px-8 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] disabled:opacity-50 text-white font-black rounded-2xl flex items-center gap-2 transition-all "
             >
               {isPending ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
               Abrir Comanda
@@ -341,7 +341,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
               <button
                 onClick={() => handleAbrir(novaComandaNome || undefined)}
                 disabled={criandoNova}
-                className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20"
+                className="flex-1 h-11 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm "
               >
                 {criandoNova ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 Abrir
@@ -429,7 +429,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
               {confirmFechar ? (
                 <div className="space-y-3">
                   {/* Premium payment selector */}
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500 text-center">Forma de Pagamento</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] dash-label text-center">Forma de Pagamento</p>
                   <div className="grid grid-cols-4 gap-2">
                     {PAYMENT_METHODS.map((m) => (
                       <button
@@ -440,7 +440,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                           flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-200
                           ${metodoPagamento === m.value
                             ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_5px_20px_rgba(16,185,129,0.1)] scale-[1.02]'
-                            : 'border-white/5 bg-white/[0.03] text-neutral-500 opacity-60 hover:opacity-100 hover:border-white/10'}
+                            : 'dash-muted border dash-border dash-label opacity-60 hover:opacity-100'}
                         `}
                       >
                         <m.icon size={18} />
@@ -458,7 +458,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                     <button
                       onClick={handleFechar}
                       disabled={isPending || !metodoPagamento}
-                      className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20"
+                      className="flex-1 h-11 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] disabled:opacity-40 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm "
                     >
                       {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                       {metodoPagamento ? `Receber · ${metodoPagamento}` : 'Selecione...'}
@@ -482,7 +482,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                     <button
                       onClick={() => { setConfirmFechar(true); setMetodoPagamento(null); }}
                       disabled={isPending}
-                      className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-600/20"
+                      className="flex-1 h-11 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] disabled:opacity-50 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm "
                     >
                       <Check size={16} /> Fechar Conta
                     </button>

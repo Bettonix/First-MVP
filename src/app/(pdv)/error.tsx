@@ -25,7 +25,7 @@ export default function PdvError({
           <h2 className="text-xl font-black tracking-tighter text-neutral-100 mb-2">
             Erro ao carregar
           </h2>
-          <p className="text-neutral-400 text-sm leading-relaxed">
+          <p className="dash-subtitle text-sm leading-relaxed">
             {error.message || "Não foi possível carregar esta página. Verifique sua conexão e tente novamente."}
           </p>
           {error.digest && (
@@ -35,13 +35,13 @@ export default function PdvError({
         <div className="flex gap-3 w-full">
           <Link
             href="/"
-            className="flex-1 h-11 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
+            className="flex-1 h-11 dash-action-btn font-bold rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
           >
             <ArrowLeft size={15} /> Início
           </Link>
           <button
             onClick={reset}
-            className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
+            className="flex-1 h-11 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] text-white font-black rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
           >
             <RefreshCw size={15} /> Tentar de novo
           </button>
