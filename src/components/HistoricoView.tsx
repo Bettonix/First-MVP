@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect, useRef } from "react";
+import { useState, useTransition, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, X, ChevronRight, QrCode, Banknote, CreditCard,
-  ShoppingBag, ClipboardList, Calendar, SlidersHorizontal,
-  ArrowLeft, Clock, Receipt, Hash, TableProperties,
-  TrendingUp, CheckCircle2, ChevronDown, RotateCcw, Printer,
+  ShoppingBag, ClipboardList, SlidersHorizontal,
+  Clock, Receipt, Hash, TableProperties,
+  CheckCircle2, ChevronDown, RotateCcw, Printer,
 } from "lucide-react";
 import type { HistoricoResult, VendaHistorico, ComandaHistorico } from "@/app/actions/historico";
 import { getHistoricoCompleto, estornarVenda } from "@/app/actions/historico";
@@ -263,7 +263,7 @@ export function HistoricoView({ initialData, initialFilters, userRole, nomeLoja 
           <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-2 ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
             {isPending && activeList.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-[72px] dash-card-muted rounded-2xl animate-pulse" />
+                <div key={`skeleton-${i}`} className="h-[72px] dash-card-muted rounded-2xl animate-pulse" />
               ))
             ) : activeList.length === 0 ? (
               <EmptyState tab={filters.tab} />
@@ -463,7 +463,7 @@ function VendaDetail({
 
   const subtotal = venda.itens.reduce((s, i) => s + i.precoCentavos * i.quantidade, 0);
   return (
-    <div className={`flex flex-col h-full ${mobile ? "" : ""}`}>
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-5 border-b dash-border shrink-0">
         <div>
@@ -500,8 +500,8 @@ function VendaDetail({
         <p className="text-[10px] font-bold dash-label uppercase tracking-widest mb-3 flex items-center gap-2">
           <ShoppingBag size={11} /> Itens ({venda.itens.length})
         </p>
-        {venda.itens.map((item, i) => (
-          <div key={i} className="flex items-center justify-between dash-muted border dash-border rounded-xl p-3.5">
+        {venda.itens.map((item) => (
+          <div key={item.produtoId} className="flex items-center justify-between dash-muted border dash-border rounded-xl p-3.5">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 dash-muted rounded-lg flex items-center justify-center shrink-0">
                 <span className="text-xs font-black dash-label">{item.quantidade}×</span>
@@ -696,7 +696,7 @@ function ComandaDetail({ comanda, onClose, mobile }: { comanda: ComandaHistorico
         {comanda.itens.length === 0 ? (
           <p className="text-sm dash-subtitle text-center py-8">Nenhum item registrado.</p>
         ) : comanda.itens.map((item, i) => (
-          <div key={i} className="flex items-center justify-between dash-muted border dash-border rounded-xl p-3.5">
+          <div key={`item-${i}`} className="flex items-center justify-between dash-muted border dash-border rounded-xl p-3.5">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 dash-muted rounded-lg flex items-center justify-center shrink-0">
                 <span className="text-xs font-black dash-label">{item.quantidade}×</span>

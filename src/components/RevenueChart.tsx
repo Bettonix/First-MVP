@@ -1,9 +1,25 @@
 "use client";
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import type { TooltipContentProps } from "recharts/types/component/Tooltip";
+import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 
 interface RevenueChartProps {
   data: Array<{ date: string; totalCentavos: number }>;
+}
+
+function RevenueTooltipContent({ active, payload, label }: TooltipContentProps<ValueType, NameType>) {
+  if (active && payload?.length) {
+    return (
+      <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(45,45,45,0.12)", boxShadow: "0 4px 12px rgba(45,45,45,0.1)" }} className="p-3 rounded-xl">
+        <p style={{ color: "#9A9A9A" }} className="font-semibold text-xs mb-1">{label}</p>
+        <p style={{ color: "#D35400" }} className="font-black text-base">
+          {Number(payload[0].value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+        </p>
+      </div>
+    );
+  }
+  return null;
 }
 
 export function RevenueChart({ data }: RevenueChartProps) {
@@ -48,19 +64,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
           />
           <Tooltip
             cursor={{ stroke: "#D35400", strokeWidth: 1, strokeDasharray: "4 4" }}
-            content={({ active, payload, label }) => {
-              if (active && payload?.length) {
-                return (
-                  <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(45,45,45,0.12)", boxShadow: "0 4px 12px rgba(45,45,45,0.1)" }} className="p-3 rounded-xl">
-                    <p style={{ color: "#9A9A9A" }} className="font-semibold text-xs mb-1">{label}</p>
-                    <p style={{ color: "#D35400" }} className="font-black text-base">
-                      {Number(payload[0].value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            }}
+            content={RevenueTooltipContent}
           />
           <Area
             type="monotone"

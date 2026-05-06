@@ -13,9 +13,8 @@
  * Usa backdrop-blur leve para integrar com o design Premium.
  */
 
-import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { WifiOff, Wifi, Loader2, CheckCircle2 } from "lucide-react";
+import { WifiOff, Loader2, CheckCircle2 } from "lucide-react";
 
 interface ConnectivityToastProps {
   isOnline: boolean;
@@ -54,7 +53,7 @@ export function ConnectivityToast({
       text:   "var(--success)",
       icon:   <Loader2 size={13} className="animate-spin" />,
       label:  "Conexão Restaurada",
-      sub:    `Sincronizando ${pendingCount > 0 ? `${pendingCount} venda${pendingCount > 1 ? "s" : ""}` : "dados"}…`,
+      sub:    (() => { const vendas = pendingCount > 0 ? `${pendingCount} venda${pendingCount > 1 ? "s" : ""}` : "dados"; return `Sincronizando ${vendas}…`; })(),
     },
     restored: {
       bg:     "rgba(45,106,79,0.08)",

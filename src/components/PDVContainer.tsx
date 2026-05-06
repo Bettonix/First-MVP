@@ -6,10 +6,10 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ShoppingCart, Banknote, QrCode, CreditCard,
-  Loader2, Lock, Minus, ChevronUp,
+  Loader2, Lock, Minus,
   DollarSign, Hash, TrendingUp, Star, Clock,
-  Package, AlertTriangle, Users, Save, X, CheckCircle2,
-  ClipboardList, ShoppingBag, Printer, Search,
+  Package, AlertTriangle, Users, X, CheckCircle2,
+  ClipboardList, ShoppingBag, Search,
   Pencil, Trash2, Plus, TableProperties, ToggleLeft, ToggleRight, ChevronLeft, RefreshCw,
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
@@ -22,7 +22,7 @@ import { QuickAddSheet, DeleteConfirmModal } from "./QuickAddSheet";
 import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
-import { useState, useEffect, useRef, useOptimistic, useTransition, memo, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo } from "react";
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
 import { useSensoryFeedback } from "@/hooks/useSensoryFeedback";
@@ -218,7 +218,7 @@ type CheckoutForm = z.infer<typeof checkoutSchema>;
 const fmt = (cents: number | null | undefined) => fmtBRL(safeCentavos(cents));
 
 function safeIdToNumber(id: string): number {
-  const numeric = id.replace(/[^0-9]/g, '');
+  const numeric = id.replace(/\D/g, '');
   return numeric.length > 0 && id === numeric ? Number(numeric) : 0;
 }
 
@@ -565,7 +565,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const [editingProduct, setEditingProduct] = useState<ProdutoPDV | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<ProdutoPDV | null>(null);
   const queryClient = useQueryClient();
-  const [isPending, startTransition] = useTransition();
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -623,9 +622,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const splitInputRef = useRef<HTMLInputElement>(null);
 
   const pagamentoType = watch("pagamento") as SplitMetodo;
-
-  // Financial normalization helper (Cents Rule)
-  const toCents = (val: unknown) => Math.round(sanitize(val) * 100);
 
   const splitPago = splitPagamentos.reduce((s, p) => s + p.valorCentavos, 0);
   const splitRestante = Math.max(0, total - splitPago);
@@ -718,17 +714,18 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       return res;
     },
     onSuccess: async (result) => {
+      const doReset = () => {
+        clearCart();
+        setCartOpen(false);
+        resetForm();
+        resetSplitState();
+        setChangeOverlay(null);
+        setTimeout(() => searchInputRef.current?.focus(), 80);
+      };
+
       // ── Offline path: venda enfileirada localmente ────────────
       if (result && '__offline' in result && result.__offline) {
         const snapshotTroco = trocoFinal;
-        const doReset = () => {
-          clearCart();
-          setCartOpen(false);
-          resetForm();
-          resetSplitState();
-          setChangeOverlay(null);
-          setTimeout(() => searchInputRef.current?.focus(), 80);
-        };
         if (snapshotTroco > 0) {
           setChangeOverlay({ troco: snapshotTroco });
           if (changeOverlayTimerRef.current) clearTimeout(changeOverlayTimerRef.current);
@@ -774,15 +771,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
       if (activeComandaId) closeComanda(activeComandaId);
       resetMesaSelector();
-
-      const doReset = () => {
-        clearCart();
-        setCartOpen(false);
-        resetForm();
-        resetSplitState();
-        setChangeOverlay(null);
-        setTimeout(() => searchInputRef.current?.focus(), 80);
-      };
 
       // Dispara impressão de forma assíncrona (não bloqueia o fluxo)
       setTimeout(() => {
@@ -845,15 +833,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
     setComandaName("");
     setComandaModalOpen(false);
     setCartOpen(false);
-  };
-
-  const clearCartWithConfirm = () => {
-    if (items.length === 0) return;
-    setConfirmData({
-      title: "Esvaziar Carrinho?",
-      message: "Todos os itens adicionados serão removidos. Deseja continuar?",
-      action: () => { clearCart(); setConfirmData(null); }
-    });
   };
 
   const selectComanda = (c: Comanda) => {
@@ -1024,7 +1003,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                             <OpenTime createdAt={c.createdAt} />
                           </div>
                           <div className="flex items-end justify-between mt-6">
-                            <div className="flex -space-x-2">{c.items.slice(0,3).map((it, idx) => <div key={idx} className="w-8 h-8 rounded-full dash-muted border-2 border-[#13161A] flex items-center justify-center text-xs font-bold dash-label">{it.quantidade}</div>)}{c.items.length > 3 && <div className="w-8 h-8 rounded-full dash-muted border-2 border-[#13161A] flex items-center justify-center text-xs font-bold dash-label">+{c.items.length - 3}</div>}</div>
+                            <div className="flex -space-x-2">{c.items.slice(0,3).map((it) => <div key={it.produtoId} className="w-8 h-8 rounded-full dash-muted border-2 border-[#13161A] flex items-center justify-center text-xs font-bold dash-label">{it.quantidade}</div>)}{c.items.length > 3 && <div className="w-8 h-8 rounded-full dash-muted border-2 border-[#13161A] flex items-center justify-center text-xs font-bold dash-label">+{c.items.length - 3}</div>}</div>
                             <div className="text-2xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(c.items.reduce((acc, i) => acc + (i.precoCentavos * i.quantidade), 0))}</div>
                           </div>
                           <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--brasa)]/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-[var(--brasa-hover)]/10 transition-all" />
@@ -1052,7 +1031,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 <div className="grid grid-cols-1 gap-4">
                   {historicoQuery.isLoading ? (
                     Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="h-24 dash-muted rounded-2xl animate-pulse" />
+                      <div key={`skeleton-${i}`} className="h-24 dash-muted rounded-2xl animate-pulse" />
                     ))
                   ) : (historicoQuery.data ?? []).length === 0 ? (
                     <div className="dash-muted border dash-border rounded-3xl p-12 flex flex-col items-center justify-center text-center opacity-50">
@@ -1559,7 +1538,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
               >
                 {splitPagamentos.map((p, i) => (
                   <motion.div
-                    key={i}
+                    key={`${p.metodo}-${i}`}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 8 }}

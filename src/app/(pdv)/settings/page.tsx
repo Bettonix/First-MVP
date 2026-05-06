@@ -89,6 +89,15 @@ interface ProductModalProps {
   onSaved: () => void;
 }
 
+function ModalField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="dash-label text-[10px] font-bold uppercase tracking-widest block mb-1.5">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 function ProductModal({ product, onClose, onSaved }: ProductModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError]            = useState("");
@@ -127,13 +136,6 @@ function ProductModal({ product, onClose, onSaved }: ProductModalProps) {
     });
   };
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <label className="dash-label text-[10px] font-bold uppercase tracking-widest block mb-1.5">{label}</label>
-      {children}
-    </div>
-  );
-
   const content = (
     <div className="fixed inset-0 z-[9000]" style={{ isolation: "isolate" }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -160,14 +162,14 @@ function ProductModal({ product, onClose, onSaved }: ProductModalProps) {
           {/* Identificação */}
           <div className="space-y-3">
             <p className="dash-label text-[10px] font-bold uppercase tracking-widest">Identificação</p>
-            <Field label="Nome do Produto *">
+            <ModalField label="Nome do Produto *">
               <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Coca-Cola 350ml"
                 className="dash-input w-full py-2.5 px-4 rounded-xl text-sm font-semibold outline-none" />
-            </Field>
-            <Field label="Categoria">
+            </ModalField>
+            <ModalField label="Categoria">
               <input value={categoria} onChange={(e) => setCategoria(e.target.value)} placeholder="Ex: Bebidas, Lanches..."
                 className="dash-input w-full py-2.5 px-4 rounded-xl text-sm font-semibold outline-none" />
-            </Field>
+            </ModalField>
           </div>
 
           <div className="border-t dash-border" />
@@ -176,14 +178,14 @@ function ProductModal({ product, onClose, onSaved }: ProductModalProps) {
           <div className="space-y-3">
             <p className="dash-label text-[10px] font-bold uppercase tracking-widest">Precificação</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Preço de Venda (R$) *">
+              <ModalField label="Preço de Venda (R$) *">
                 <input value={precoVenda} onChange={(e) => setPrecoVenda(e.target.value)} placeholder="0,00"
                   className="dash-input w-full py-2.5 px-4 rounded-xl text-sm font-semibold outline-none" />
-              </Field>
-              <Field label="Preço de Custo (R$)">
+              </ModalField>
+              <ModalField label="Preço de Custo (R$)">
                 <input value={precoCusto} onChange={(e) => setPrecoCusto(e.target.value)} placeholder="0,00"
                   className="dash-input w-full py-2.5 px-4 rounded-xl text-sm font-semibold outline-none" />
-              </Field>
+              </ModalField>
             </div>
           </div>
 
@@ -193,14 +195,14 @@ function ProductModal({ product, onClose, onSaved }: ProductModalProps) {
           <div className="space-y-3">
             <p className="dash-label text-[10px] font-bold uppercase tracking-widest">Controle de Estoque</p>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Estoque Atual">
+              <ModalField label="Estoque Atual">
                 <input type="number" min={0} value={estoque} onChange={(e) => setEstoque(e.target.value)}
                   className="dash-input w-full py-2.5 px-4 rounded-xl text-sm font-semibold outline-none" />
-              </Field>
-              <Field label="Estoque Mínimo">
+              </ModalField>
+              <ModalField label="Estoque Mínimo">
                 <input type="number" min={0} value={minEstoque} onChange={(e) => setMinEstoque(e.target.value)}
                   className="dash-input w-full py-2.5 px-4 rounded-xl text-sm font-semibold outline-none" />
-              </Field>
+              </ModalField>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setGerenciar(!gerenciar)}
@@ -303,7 +305,7 @@ function EstoqueTab() {
     setProdutos((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p));
     startTransition(async () => {
       const res = await updateEstoque(id, data);
-      if ("error" in res) showToast(res.error, false);
+      if ("error" in res) { showToast(res.error, false); }
     });
   };
 
@@ -378,7 +380,7 @@ function EstoqueTab() {
 
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-[60px] border-b dash-border animate-pulse last:border-0" />
+                <div key={`skeleton-${i}`} className="h-[60px] border-b dash-border animate-pulse last:border-0" />
               ))
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -447,7 +449,7 @@ function EstoqueTab() {
       {/* Mobile Card List */}
       <div className="dash-card rounded-2xl overflow-hidden md:hidden">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 border-b dash-border animate-pulse last:border-0" />)
+          Array.from({ length: 4 }).map((_, i) => <div key={`skeleton-${i}`} className="h-20 border-b dash-border animate-pulse last:border-0" />)
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Package size={28} className="dash-label" />
@@ -555,7 +557,7 @@ function MesasTab() {
     if (!batchPrefix.trim()) { setBatchError("Informe um prefixo."); return; }
     startTransition(async () => {
       const r = await criarMesasEmLote(batchQtd, batchPrefix);
-      if (r.error) setBatchError(r.error); else reload();
+      if (r.error) { setBatchError(r.error); } else { reload(); }
     });
   };
 
@@ -657,7 +659,7 @@ function MesasTab() {
         <div className="p-4">
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-              {Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-[70px] dash-card rounded-xl animate-pulse" />)}
+              {Array.from({ length: 10 }).map((_, i) => <div key={`skeleton-${i}`} className="h-[70px] dash-card rounded-xl animate-pulse" />)}
             </div>
           ) : mesas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 gap-3">
@@ -1002,7 +1004,7 @@ function EquipeTab() {
 
         {/* List */}
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 border-b dash-border animate-pulse last:border-0" />)
+          Array.from({ length: 3 }).map((_, i) => <div key={`skeleton-${i}`} className="h-16 border-b dash-border animate-pulse last:border-0" />)
         ) : operadores.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Users size={28} className="dash-label" />

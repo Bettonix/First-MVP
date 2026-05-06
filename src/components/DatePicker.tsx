@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 
 interface DatePickerProps {
   selectedDate: Date;
@@ -130,7 +130,7 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
               {/* Weekdays */}
               <div className="grid grid-cols-7 mb-2">
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                  <div key={i} className="h-10 flex items-center justify-center text-[10px] font-black dash-label uppercase tracking-widest">
+                  <div key={`weekday-${i}`} className="h-10 flex items-center justify-center text-[10px] font-black dash-label uppercase tracking-widest">
                     {d}
                   </div>
                 ))}

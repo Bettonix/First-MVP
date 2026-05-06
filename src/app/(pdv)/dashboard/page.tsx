@@ -182,7 +182,7 @@ async function RankingSection({ period, filters }: { period: string; filters: Fi
               index === 1 ? "dash-rank-silver" :
               index === 2 ? "dash-rank-bronze" : "dash-rank-other";
             return (
-              <div key={index} className="dash-row-hover flex items-center gap-4 p-3 rounded-xl transition-colors">
+              <div key={produto.nome} className="dash-row-hover flex items-center gap-4 p-3 rounded-xl transition-colors">
                 <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black shrink-0 ${rankClass}`}>
                   {index + 1}
                 </span>

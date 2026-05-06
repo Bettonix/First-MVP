@@ -5,10 +5,9 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Plus, Search, X, Check, AlertTriangle,
-  Loader2, ChevronRight, ImageOff, RefreshCw,
+  Loader2, ChevronRight, ImageOff,
 } from "lucide-react";
-import { getProdutosCatalogo, toggleProdutoAtivo, updateProduto } from "@/app/actions/produtos";
-import { createProduto } from "@/app/actions/produtos";
+import { getProdutosCatalogo, toggleProdutoAtivo, updateProduto, createProduto } from "@/app/actions/produtos";
 import { getProdutosInconsistentes, reconciliarProduto, type ProdutoInconsistente } from "@/app/actions/reconciliacao";
 import { ProductForm } from "@/components/ProductForm";
 import { fmtBRL, safeCentavos } from "@/lib/currency";

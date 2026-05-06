@@ -20,7 +20,6 @@ import {
   removeVenda,
   incrementAttempts,
   countPending,
-  type OfflineVenda,
 } from "@/lib/offlineQueue";
 import { registrarVenda } from "@/app/actions/vendas";
 

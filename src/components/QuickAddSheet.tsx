@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, X, Trash2, AlertTriangle } from "lucide-react";
 import { ProductForm } from "./ProductForm";
 import { createProduto, updateProduto, deleteProduto } from "@/app/actions/produtos";
 import { ProdutoFormData } from "@/schemas/produto.schema";

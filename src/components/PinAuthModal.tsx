@@ -114,8 +114,7 @@ export function PinAuthModal({
         <div className="flex gap-3 mb-6">
           {digits.map((d, i) => (
             <input
-              key={i}
-              ref={inputRefs[i]}
+              key={`digit-${i}`}
               type="password"
               inputMode="numeric"
               maxLength={1}

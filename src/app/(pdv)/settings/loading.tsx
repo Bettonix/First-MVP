@@ -40,7 +40,7 @@ export default function SettingsLoading() {
           {/* Table */}
           <div className="dash-card rounded-2xl overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-[60px] border-b dash-border animate-pulse last:border-0" />
+              <div key={`skeleton-${i}`} className="h-[60px] border-b dash-border animate-pulse last:border-0" />
             ))}
           </div>
         </main>

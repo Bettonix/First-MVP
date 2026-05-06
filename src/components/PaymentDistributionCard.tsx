@@ -1,7 +1,9 @@
 "use client";
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { QrCode, Banknote, CreditCard, Star } from "lucide-react";
+import type { TooltipContentProps } from "recharts/types/component/Tooltip";
+import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent";
 
 interface PaymentDistributionCardProps {
   data: Array<{ metodo: string; quantidade: number; totalCentavos: number }>;
@@ -13,6 +15,20 @@ const COLORS: Record<string, string> = {
   MISTO:    "#B7791F",  /* mel — âmbar */
 };
 const DEFAULT_COLOR = "#94a3b8";
+
+function PieTooltipContent({ active, payload }: TooltipContentProps<ValueType, NameType>) {
+  if (active && payload?.length) {
+    return (
+      <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(45,45,45,0.12)", boxShadow: "0 4px 12px rgba(45,45,45,0.1)" }} className="p-2.5 rounded-xl">
+        <p style={{ color: "var(--ink-3)" }} className="font-bold text-xs">{payload[0].name}</p>
+        <p style={{ color: "var(--ink)" }} className="font-black text-sm">
+          {Number(payload[0].value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
 
 function MetodoIcon({ metodo }: { metodo: string }) {
   const cls = "shrink-0";
@@ -77,21 +93,7 @@ export function PaymentDistributionCard({ data }: PaymentDistributionCardProps) 
                   <Cell key={entry.name} fill={COLORS[entry.name] ?? DEFAULT_COLOR} />
                 ))}
               </Pie>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload?.length) {
-                    return (
-                      <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(45,45,45,0.12)", boxShadow: "0 4px 12px rgba(45,45,45,0.1)" }} className="p-2.5 rounded-xl">
-                        <p style={{ color: "var(--ink-3)" }} className="font-bold text-xs">{payload[0].name}</p>
-                        <p style={{ color: "var(--ink)" }} className="font-black text-sm">
-                          {Number(payload[0].value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
+              <Tooltip content={PieTooltipContent} />
             </PieChart>
           </ResponsiveContainer>
         </div>

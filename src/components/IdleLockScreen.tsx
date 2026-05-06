@@ -124,7 +124,7 @@ export function IdleLockScreen({ nomeLoja }: IdleLockScreenProps) {
             <div className="flex gap-3 mb-5">
               {digits.map((d, i) => (
                 <input
-                  key={i}
+                  key={`digit-${i}`}
                   ref={inputRefs[i]}
                   type="password"
                   inputMode="numeric"

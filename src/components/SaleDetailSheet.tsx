@@ -88,7 +88,7 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
           </p>
           {sale.itens.map((item, i) => (
             <div
-              key={i}
+              key={`item-${i}`}
               className="flex items-center justify-between dash-card-muted border dash-border rounded-xl p-4"
             >
               <div className="flex items-center gap-3 min-w-0">

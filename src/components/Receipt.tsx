@@ -46,7 +46,8 @@ function metodoLabel(m: string) {
 // ─── Thermal Receipt (componente oculto para impressão/PDF) ───────────────────
 export function ThermalReceipt({ data }: { data: ReceiptData }) {
   const subtotal = data.items.reduce((s, i) => s + i.precoCentavos * i.quantidade, 0);
-  const qrValue = data.instagramUrl || `https://wa.me/?text=${encodeURIComponent(`${data.nomeLoja} - Recibo`)}`;
+  const qrFallback = `https://wa.me/?text=${encodeURIComponent(`${data.nomeLoja} - Recibo`)}`;
+  const qrValue = data.instagramUrl || qrFallback;
 
   return (
     <div
@@ -76,8 +77,8 @@ export function ThermalReceipt({ data }: { data: ReceiptData }) {
         <div style={{ fontSize: "9px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px", color: "#555" }}>
           ITENS
         </div>
-        {data.items.map((item, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+        {data.items.map((item) => (
+          <div key={item.produtoId} style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "44mm" }}>
               {item.quantidade}x {item.nome}
             </span>
@@ -166,7 +167,7 @@ function DigitalReceiptPreview({ data }: { data: ReceiptData }) {
           ITENS DO PEDIDO
         </div>
         {data.items.map((item, i) => (
-          <div key={i} style={{
+          <div key={item.produtoId} style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -303,7 +304,8 @@ export function ReceiptModal({ isOpen, data, onClose }: ReceiptModalProps) {
   const handleShare = useCallback(async () => {
     if (!data) return;
     const itemsText = data.items.map(i => `${i.quantidade}x ${i.nome} — ${fmt(i.precoCentavos * i.quantidade)}`).join("\n");
-    const text = `🧾 *${data.nomeLoja}*\n\n${itemsText}\n\n*Total: ${fmt(data.totalCentavos)}*\nPagamento: ${metodoLabel(data.metodoPagamento)}\n\n${data.instagramUrl ? `📸 ${data.instagramUrl}` : "Obrigado pela preferência! ♥"}`;
+    const footer = data.instagramUrl ? `📸 ${data.instagramUrl}` : "Obrigado pela preferência! ♥";
+    const text = `🧾 *${data.nomeLoja}*\n\n${itemsText}\n\n*Total: ${fmt(data.totalCentavos)}*\nPagamento: ${metodoLabel(data.metodoPagamento)}\n\n${footer}`;
 
     if (navigator.share) {
       try {

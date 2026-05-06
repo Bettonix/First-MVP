@@ -173,7 +173,7 @@ export function InventoryReconciliationSheet({ isOpen, onClose, produtos }: Prop
                             backgroundColor: produto.estoqueAtual < 0 ? "var(--danger-bg)" : "var(--warning-bg)",
                             color: produto.estoqueAtual < 0 ? "var(--danger)" : "var(--warning)",
                           }}>
-                          {produto.estoqueAtual < 0 ? "" : ""}{produto.estoqueAtual} un
+                          {produto.estoqueAtual} un
                         </div>
                       </div>
 
