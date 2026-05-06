@@ -5,14 +5,112 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package, Plus, Search, X, Check, AlertTriangle,
-  Loader2, ChevronRight, ImageOff,
+  Loader2, ChevronRight, ImageOff, RefreshCw,
 } from "lucide-react";
 import { getProdutosCatalogo, toggleProdutoAtivo, updateProduto } from "@/app/actions/produtos";
 import { createProduto } from "@/app/actions/produtos";
+import { getProdutosInconsistentes, reconciliarProduto, type ProdutoInconsistente } from "@/app/actions/reconciliacao";
 import { ProductForm } from "@/components/ProductForm";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ProdutoFormData } from "@/schemas/produto.schema";
+
+// ─── Reconciliação Alert Card ──────────────────────────────────────────────────
+function ReconciliacaoAlert() {
+  const queryClient = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: inconsistentes = [], isLoading } = useQuery({
+    queryKey: ["produtos-inconsistentes"],
+    queryFn: getProdutosInconsistentes,
+    staleTime: 30_000,
+  });
+
+  const reconciliarMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => reconciliarProduto(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["produtos-inconsistentes"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos-catalogo"] });
+    },
+  });
+
+  if (isLoading || inconsistentes.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      className="rounded-2xl border overflow-hidden"
+      style={{
+        backgroundColor: "var(--warning-bg)",
+        borderColor: "rgba(146,64,14,0.2)",
+        borderLeft: "3px solid var(--warning)",
+      }}
+    >
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(146,64,14,0.04)]"
+      >
+        <AlertTriangle size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black tracking-tight" style={{ color: "var(--warning)" }}>
+            {inconsistentes.length} produto{inconsistentes.length > 1 ? "s" : ""} com divergência de estoque
+          </p>
+          <p className="text-xs font-medium mt-0.5" style={{ color: "rgba(146,64,14,0.7)" }}>
+            Gerado por sincronização offline · Requer reconciliação manual
+          </p>
+        </div>
+        <ChevronRight
+          size={14}
+          style={{ color: "var(--warning)", flexShrink: 0, transform: expanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+        />
+      </button>
+
+      {/* Expanded list */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-3 flex flex-col gap-1.5 border-t" style={{ borderColor: "rgba(146,64,14,0.12)" }}>
+              {inconsistentes.map((p: ProdutoInconsistente) => (
+                <div key={p.id} className="flex items-center gap-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate" style={{ color: "var(--ink)" }}>{p.nome}</p>
+                    <p className="text-xs font-medium" style={{ color: "var(--ink-3)" }}>
+                      Estoque atual: <span className="font-black" style={{ color: p.estoqueAtual < 0 ? "var(--danger)" : "var(--ink)" }}>{p.estoqueAtual}</span>
+                      {" · "}{new Date(p.lastInconsistency).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => reconciliarMutation.mutate({ id: p.id })}
+                    disabled={reconciliarMutation.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 disabled:opacity-40"
+                    style={{ backgroundColor: "var(--success-bg)", color: "var(--success)", border: "1px solid rgba(45,106,79,0.2)" }}
+                  >
+                    {reconciliarMutation.isPending
+                      ? <Loader2 size={11} className="animate-spin" />
+                      : <><Check size={11} /> Resolver</>
+                    }
+                  </button>
+                </div>
+              ))}
+              <p className="text-[10px] font-semibold pt-1" style={{ color: "rgba(146,64,14,0.6)" }}>
+                "Resolver" marca o produto como reconciliado e zera a flag. Ajuste o estoque manualmente se necessário.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────
 interface ProdutoCatalogo {
@@ -248,7 +346,8 @@ function ProdutosCatalogoInner() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-black dash-value flex items-center gap-2 tracking-tighter">
+              <h1 className="text-2xl font-black flex items-center gap-2 tracking-tighter bg-clip-text text-transparent"
+                style={{ backgroundImage: "linear-gradient(135deg, #1c1917 0%, #57534e 100%)" }}>
                 <Package size={22} style={{ color: "var(--brasa)" }} />
                 Catálogo
               </h1>
@@ -264,6 +363,9 @@ function ProdutosCatalogoInner() {
               <Plus size={15} /> Novo
             </button>
           </div>
+
+          {/* Reconciliação — aparece apenas se houver produtos inconsistentes */}
+          <ReconciliacaoAlert />
 
           {/* Search */}
           <div className="relative">
@@ -341,9 +443,9 @@ function ProdutosCatalogoInner() {
                       </td>
                       <td className="px-5 py-3.5 hidden md:table-cell">
                         <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
-                          p.estoqueAtual > 5 ? "bg-emerald-500/10 text-emerald-400"
-                          : p.estoqueAtual > 0 ? "bg-amber-500/10 text-amber-400"
-                          : "bg-rose-500/10 text-rose-400"
+                          p.estoqueAtual > 5 ? "bg-[var(--success-bg)] text-[var(--success)]"
+                          : p.estoqueAtual > 0 ? "bg-[var(--warning-bg)] text-[var(--warning)]"
+                          : "bg-[var(--danger-bg)] text-[var(--danger)]"
                         }`}>
                           {p.estoqueAtual} un.
                         </span>

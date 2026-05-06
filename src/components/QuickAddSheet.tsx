@@ -31,8 +31,8 @@ export function QuickAddButton({ onClick }: { onClick: () => void }) {
         h-12 px-5 rounded-xl font-black text-sm uppercase tracking-widest
         flex items-center justify-center gap-2
         bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] text-white
-        transition-all duration-150 active:scale-[0.98]
-        shadow-lg shadow-emerald-600/20
+        transition-all duration-150 active:scale-[0.98] hover:-translate-y-px
+        shadow-[0_4px_14px_rgba(211,84,0,0.3)]
       "
     >
       <Plus size={16} /> Novo Produto
@@ -67,8 +67,8 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
   const createMutation = useMutation({
     mutationFn: async (data: ProdutoFormData) => {
       const res = await createProduto(data);
-      if (!res.success) throw new Error((res as any).error || "Erro ao criar");
-      return (res as any).produto;
+      if (!res.success) throw new Error('error' in res ? res.error : "Erro ao criar");
+      return 'produto' in res ? res.produto : null;
     },
     onMutate: async (newProdutoData) => {
       await queryClient.cancelQueries({ queryKey: ['produtos-pdv'] });
@@ -92,7 +92,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
       close();
       return { previousProdutos };
     },
-    onError: (err: any, _newProduto, context) => {
+    onError: (err: Error, _newProduto, context) => {
       if (context?.previousProdutos) {
         queryClient.setQueryData(['produtos-pdv'], context.previousProdutos);
       }
@@ -107,8 +107,8 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ProdutoFormData }) => {
       const res = await updateProduto(id, data);
-      if (!res.success) throw new Error((res as any).error || "Erro ao atualizar");
-      return (res as any).produto;
+      if (!res.success) throw new Error('error' in res ? res.error : "Erro ao atualizar");
+      return 'produto' in res ? res.produto : null;
     },
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ['produtos-pdv'] });
@@ -116,7 +116,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
 
       queryClient.setQueryData(['produtos-pdv'], (old: unknown) => {
         if (!Array.isArray(old) || !editProduct) return old;
-        return old.map((p: any) =>
+        return old.map((p: { id: string; [key: string]: unknown }) =>
           p.id === id
             ? {
                 ...p,
@@ -134,7 +134,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
       close();
       return { previousProdutos };
     },
-    onError: (err: any, _data, context) => {
+    onError: (err: Error, _data, context) => {
       if (context?.previousProdutos) {
         queryClient.setQueryData(['produtos-pdv'], context.previousProdutos);
       }
@@ -160,7 +160,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
       setIsDeleting(false);
       close();
     },
-    onError: (err: any) => notify(err.message, "error"),
+    onError: (err: Error) => notify(err.message, "error"),
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['produtos-pdv'] }),
   });
 
@@ -243,7 +243,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
                   )}
                   <button
                     onClick={close}
-                    className="p-3 bg-white/5 hover:bg-white/10 text-neutral-500 hover:text-neutral-200 rounded-2xl transition-all"
+                    className="p-3 dash-muted hover:dash-card border dash-border text-[var(--ink-3)] hover:text-[var(--ink)] rounded-2xl transition-all"
                     aria-label="Fechar modal"
                   >
                     <X size={20} />
@@ -302,26 +302,26 @@ export function DeleteConfirmModal({ product, onConfirm, onCancel, isPending }: 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-[#13161A] w-full max-w-sm p-8 rounded-[32px] border border-rose-500/20 relative shadow-[0_0_60px_rgba(239,68,68,0.15)] flex flex-col items-center text-center"
+        className="dash-card w-full max-w-sm p-8 rounded-[32px] border border-rose-200 relative shadow-[0_0_60px_rgba(239,68,68,0.08)] flex flex-col items-center text-center"
       >
-        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mb-5">
-          <AlertTriangle size={32} className="text-rose-400" />
+        <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-5">
+          <AlertTriangle size={32} className="text-rose-500" />
         </div>
-        <h3 className="text-lg font-black mb-2 tracking-tighter">Excluir Produto?</h3>
-        <p className="text-neutral-400 text-sm mb-6">
-          Tem certeza que deseja excluir <strong className="text-neutral-200">{product.nome}</strong>? Esta ação é irreversível.
+        <h3 className="text-lg font-black mb-2 tracking-tighter dash-title">Excluir Produto?</h3>
+        <p className="dash-label text-sm mb-6">
+          Tem certeza que deseja excluir <strong className="dash-value">{product.nome}</strong>? Esta ação é irreversível.
         </p>
         <div className="w-full flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 rounded-xl font-bold text-sm transition-all"
+            className="flex-1 h-12 dash-muted hover:dash-card border dash-border dash-value rounded-xl font-bold text-sm transition-all"
           >
             Cancelar
           </button>
           <button
             onClick={onConfirm}
             disabled={isPending}
-            className="flex-1 h-12 bg-rose-600 hover:bg-rose-500 disabled:bg-neutral-800 disabled:text-neutral-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+            className="flex-1 h-12 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
           >
             {isPending ? <span className="animate-spin">⟳</span> : <><Trash2 size={14} /> Excluir</>}
           </button>

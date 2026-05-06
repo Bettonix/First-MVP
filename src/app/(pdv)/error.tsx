@@ -18,18 +18,18 @@ export default function PdvError({
   return (
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="flex flex-col items-center text-center gap-6 max-w-sm">
-        <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center">
-          <AlertTriangle size={28} className="text-rose-400" />
+        <div className="w-16 h-16 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-center">
+          <AlertTriangle size={28} className="text-rose-500" />
         </div>
         <div>
-          <h2 className="text-xl font-black tracking-tighter text-neutral-100 mb-2">
+          <h2 className="text-xl font-black tracking-tighter dash-title mb-2">
             Erro ao carregar
           </h2>
           <p className="dash-subtitle text-sm leading-relaxed">
             {error.message || "Não foi possível carregar esta página. Verifique sua conexão e tente novamente."}
           </p>
           {error.digest && (
-            <p className="text-neutral-600 text-xs mt-2 font-mono">ref: {error.digest}</p>
+            <p className="dash-label text-xs mt-2 font-mono">ref: {error.digest}</p>
           )}
         </div>
         <div className="flex gap-3 w-full">

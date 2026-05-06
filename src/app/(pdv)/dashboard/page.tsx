@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getFullDashboardStats } from "@/app/actions/analytics";
 import { RevenueChart, PaymentDistributionCard } from "@/components/DashboardCharts";
 import { DashboardFilters } from "@/components/DashboardFilters";
+import { TarefasOperacaoCard } from "@/components/TarefasOperacaoCard";
 import { Package, TrendingUp, ShoppingCart, BarChart2 } from "lucide-react";
 import type { DashboardFilters as Filters } from "@/core/application/services/analytics.service";
 
@@ -54,18 +55,29 @@ function KpiCard({
 }) {
   return (
     <div
-      className="dash-card rounded-3xl p-5 relative overflow-hidden"
+      className="dash-card rounded-3xl p-5 relative overflow-hidden flex flex-col gap-3"
       style={{ borderTop: `2px solid ${accentColor}` }}
     >
-      <div
-        className="w-8 h-8 rounded-xl flex items-center justify-center mb-3"
-        style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
-      >
-        <Icon size={15} />
+      {/* Icon + label row */}
+      <div className="flex items-center justify-between">
+        <p className="dash-label text-[10px] font-black uppercase tracking-widest">{title}</p>
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `${accentColor}18`, color: accentColor }}
+        >
+          <Icon size={13} />
+        </div>
       </div>
-      <p className="dash-label text-[10px] font-bold uppercase tracking-wider mb-1">{title}</p>
-      <p className="dash-value text-xl font-black tabular-nums tracking-tight">{value}</p>
-      {sub && <p className="dash-subtitle text-xs font-semibold mt-0.5">{sub}</p>}
+      {/* Value — data-first, no gradient */}
+      <div>
+        <p className="dash-value text-2xl font-black tabular-nums tracking-tight leading-none">{value}</p>
+        {sub && (
+          <p className="dash-subtitle text-xs font-semibold mt-1.5 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ backgroundColor: accentColor }} />
+            {sub}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -233,7 +245,10 @@ export default async function DashboardPage({
       {/* Header */}
       <div className="flex flex-col gap-3">
         <div>
-          <h1 className="dash-title text-3xl font-black tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-black tracking-tight bg-clip-text text-transparent"
+            style={{ backgroundImage: "linear-gradient(135deg, #1c1917 0%, #57534e 100%)" }}>
+            Dashboard
+          </h1>
           <p className="dash-subtitle font-medium text-sm">Inteligência de negócio em tempo real.</p>
         </div>
         {/* Filtros — carregam independentemente */}
@@ -246,6 +261,9 @@ export default async function DashboardPage({
           <FiltersSection period={period} metodo={params.metodo} categoria={params.categoria} />
         </Suspense>
       </div>
+
+      {/* Tarefas de Operação — aparece apenas se houver produtos inconsistentes */}
+      <TarefasOperacaoCard />
 
       {/* KPIs — stream independente */}
       <Suspense key={`kpis-${streamKey}`} fallback={<KpisSkeleton />}>

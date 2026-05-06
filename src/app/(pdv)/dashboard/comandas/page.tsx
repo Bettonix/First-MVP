@@ -48,32 +48,32 @@ function MesaCard({ mesa, onClick }: { mesa: MesaComComanda; onClick: () => void
       className={`relative flex flex-col items-center justify-center text-center p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-none
         hover:scale-[1.03] hover:shadow-lg group
         ${ocupada
-          ? "bg-emerald-500/8 border-emerald-500/40 shadow-[inset_0_0_0_1.5px_rgba(16,185,129,0.35)]"
+          ? "bg-[var(--brasa-light)] border-[var(--brasa-border)] shadow-[inset_0_0_0_1.5px_var(--brasa-border)]"
           : "dash-card hover:border-[var(--brasa-border)]"
         }`}
     >
       {/* Status dot */}
-      <div className={`w-2.5 h-2.5 rounded-full mb-3 transition-colors ${ocupada ? "bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)]" : "bg-neutral-600"}`} />
+      <div className={`w-2.5 h-2.5 rounded-full mb-3 transition-colors ${ocupada ? "bg-[var(--brasa)] shadow-[0_0_8px_rgba(211,84,0,0.5)]" : "bg-[var(--border-strong)]"}`} />
 
-      <p className={`font-black text-base leading-tight mb-1 ${ocupada ? "text-emerald-300" : "dash-value"}`}>
+      <p className={`font-black text-base leading-tight mb-1 ${ocupada ? "dash-highlight-text" : "dash-value"}`}>
         {mesa.nome}
       </p>
 
       {ocupada ? (
         <>
-          <p className="text-emerald-400 font-black text-lg tabular-nums">
+          <p className="dash-highlight-text font-black text-lg tabular-nums">
             {fmtBRL(totalGeral)}
           </p>
           {count > 1 ? (
-            <p className="text-emerald-400 text-xs font-black mt-1 flex items-center gap-1">
+            <p className="dash-highlight-text text-xs font-black mt-1 flex items-center gap-1">
               <Users size={10} /> {count} comandas
             </p>
           ) : oldest ? (
-            <p className="text-emerald-500/80 text-xs font-semibold mt-1 flex items-center gap-1">
+            <p className="dash-highlight-text opacity-80 text-xs font-semibold mt-1 flex items-center gap-1">
               <Timer size={10} /> {tempoAberta(oldest.abertaEm)}
             </p>
           ) : null}
-          <p className="text-emerald-500/60 text-[10px] mt-1">
+          <p className="dash-highlight-text opacity-60 text-[10px] mt-1">
             {mesa.comandas.reduce((a, c) => a + c.itens.length, 0)} itens
           </p>
         </>
@@ -81,7 +81,7 @@ function MesaCard({ mesa, onClick }: { mesa: MesaComComanda; onClick: () => void
         <p className="dash-subtitle text-xs font-semibold mt-1">Livre</p>
       )}
 
-      <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity ${ocupada ? "text-emerald-400" : "dash-subtitle"}`}>
+      <div className={`absolute right-2.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity ${ocupada ? "dash-highlight-text" : "dash-subtitle"}`}>
         <ChevronRight size={16} />
       </div>
     </button>
@@ -242,7 +242,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
             ) : null}
             <div>
               <h2 className="dash-title font-black text-lg">{mesa.nome}</h2>
-              <p className={`text-xs font-bold ${mesa.comandas.length > 0 ? "text-emerald-400" : "dash-subtitle"}`}>
+              <p className={`text-xs font-bold ${mesa.comandas.length > 0 ? "dash-highlight-text" : "dash-subtitle"}`}>
                 {view === "detail" && selectedComanda
                   ? `${selectedComanda.name ?? "Comanda"} · ${tempoAberta(selectedComanda.abertaEm)}`
                   : mesa.comandas.length > 0
@@ -299,8 +299,8 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <p className="text-emerald-400 font-black tabular-nums">{fmtBRL(comanda.totalCentavos)}</p>
-                    <ChevronRight size={16} className="dash-subtitle group-hover:text-emerald-400 transition-colors" />
+                    <p className="dash-highlight-text font-black tabular-nums">{fmtBRL(comanda.totalCentavos)}</p>
+                    <ChevronRight size={16} className="dash-subtitle group-hover:dash-highlight-text transition-colors" />
                   </div>
                 </button>
               ))}
@@ -309,7 +309,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
               {error && <p className="text-rose-500 text-xs font-semibold">{error}</p>}
               <button
                 onClick={() => setView("nova")}
-                className="w-full h-11 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-black rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
+                className="w-full h-11 bg-[var(--brasa-light)] hover:bg-[rgba(211,84,0,0.12)] border border-[var(--brasa-border)] dash-highlight-text font-black rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
               >
                 <Plus size={15} /> Nova Comanda
               </button>
@@ -356,7 +356,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
             <div className="flex-1 overflow-y-auto p-6 space-y-2">
               <div className="flex items-center justify-between mb-3">
                 <p className="dash-label text-xs font-bold uppercase tracking-wider">Itens ({selectedComanda.itens.length})</p>
-                <p className="text-emerald-400 font-black tabular-nums">{fmtBRL(selectedComanda.totalCentavos)}</p>
+                <p className="dash-highlight-text font-black tabular-nums">{fmtBRL(selectedComanda.totalCentavos)}</p>
               </div>
 
               {selectedComanda.itens.length === 0 ? (
@@ -409,7 +409,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                       <span className="dash-value text-sm font-semibold truncate">{p.nome}</span>
                       <span className="text-xs font-bold flex items-center gap-1.5 shrink-0">
                         <span className="dash-subtitle">{fmtBRL(p.precoCentavos)}</span>
-                        <span className="flex items-center gap-0.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md text-[10px] font-black">
+                        <span className="flex items-center gap-0.5 dash-highlight-text bg-[var(--brasa-light)] border border-[var(--brasa-border)] px-1.5 py-0.5 rounded-md text-[10px] font-black">
                           <Plus size={10} /> Enviar
                         </span>
                       </span>
@@ -439,7 +439,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                         className={`
                           flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-200
                           ${metodoPagamento === m.value
-                            ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_5px_20px_rgba(16,185,129,0.1)] scale-[1.02]'
+                            ? 'border-[var(--brasa)] bg-[var(--brasa-light)] dash-highlight-text shadow-[0_5px_20px_rgba(211,84,0,0.15)] scale-[1.02]'
                             : 'dash-muted border dash-border dash-label opacity-60 hover:opacity-100'}
                         `}
                       >
@@ -470,7 +470,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
                   <button
                     onClick={() => { setSearch(""); onRefresh(); }}
                     disabled={isPending || selectedComanda.itens.length === 0}
-                    className="w-full h-11 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 disabled:opacity-40 text-emerald-300 font-black rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
+                    className="w-full h-11 bg-[var(--brasa-light)] hover:bg-[rgba(211,84,0,0.12)] border border-[var(--brasa-border)] disabled:opacity-40 dash-highlight-text font-black rounded-xl flex items-center justify-center gap-2 text-sm transition-all"
                   >
                     {isPending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                     Enviar para Preparo
@@ -494,7 +494,7 @@ function ComandaSheet({ mesa, onClose, onRefresh }: ComandaSheetProps) {
               {!confirmFechar && mesa.comandas.length >= 1 && (
                 <button
                   onClick={() => setView("nova")}
-                  className="w-full text-xs font-bold dash-subtitle hover:text-emerald-400 flex items-center justify-center gap-1 transition-colors py-1"
+                  className="w-full text-xs font-bold dash-subtitle hover:dash-highlight-text flex items-center justify-center gap-1 transition-colors py-1"
                 >
                   <Plus size={11} /> Abrir outra comanda nesta mesa
                 </button>
@@ -549,7 +549,10 @@ export default function ComandasPage() {
             <ClipboardList size={20} />
           </div>
           <div>
-            <h1 className="dash-title text-2xl font-black tracking-tight">Comandas</h1>
+            <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: "linear-gradient(135deg, #1c1917 0%, #57534e 100%)" }}>
+              Comandas
+            </h1>
             <p className="dash-subtitle font-medium text-sm">Visão em tempo real das mesas e pedidos.</p>
           </div>
         </div>

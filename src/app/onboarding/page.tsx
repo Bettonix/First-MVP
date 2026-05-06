@@ -117,7 +117,7 @@ export default function OnboardingPage() {
   const progress = (step / STEPS.length) * 100;
 
   return (
-    <div className="min-h-[100dvh] bg-[#0B0D11] flex flex-col select-none">
+    <div className="min-h-[100dvh] bg-[#0B0D11] flex flex-col select-none" data-theme="dark">
 
       {/* ── Top: logo + progress ────────────────────────────────────── */}
       <header className="shrink-0 px-5 pt-10 pb-4 max-w-md mx-auto w-full">

@@ -100,23 +100,29 @@ model MovimentacaoFinanceira {
 }
 
 model Produto {
-  id                  BigInt   @id @default(autoincrement())
-  tenantId            String   @map("tenant_id")
+  id                  BigInt    @id @default(autoincrement())
+  tenantId            String    @map("tenant_id")
   nome                String
   precoCentavos       Int
-  precoCustoCentavos  Int      @default(0)
-  categoria           String   @default("Outros")
-  estoqueAtual        Int      @default(0)
-  estoqueInicial      Int      @default(0)
-  estoqueMinimo       Int      @default(0)      @map("estoque_minimo")
-  gerenciarEstoque    Boolean  @default(true)   @map("gerenciar_estoque")
-  isFavorito          Boolean  @default(true)
-  ativo               Boolean  @default(true)
+  precoCustoCentavos  Int       @default(0)
+  categoria           String    @default("Outros")
+  estoqueAtual        Int       @default(0)
+  estoqueInicial      Int       @default(0)
+  estoqueMinimo       Int       @default(0)      @map("estoque_minimo")
+  gerenciarEstoque    Boolean   @default(true)   @map("gerenciar_estoque")
+  isFavorito          Boolean   @default(true)
+  ativo               Boolean   @default(true)
+  /// Marcado true quando uma venda offline resulta em estoqueAtual < 0.
+  /// O gerente deve reconciliar manualmente via ajuste de estoque.
+  needsReconciliation Boolean   @default(false)  @map("needs_reconciliation")
+  /// Timestamp da última inconsistência detectada (sync offline).
+  lastInconsistency   DateTime? @map("last_inconsistency")
 
   movimentacoes       MovimentacaoEstoque[]
 
   @@index([tenantId, isFavorito])
   @@index([tenantId, ativo])
+  @@index([tenantId, needsReconciliation])
 }
 
 /// Histórico de auditoria de estoque (ENTRADA, SAIDA, AJUSTE).

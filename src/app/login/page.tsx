@@ -2,24 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Loader2, Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Eye, EyeOff, AlertCircle, ArrowRight, ArrowLeft } from "lucide-react";
 import { Syne } from "next/font/google";
-import { signInWithGoogle, signInWithPassword, signUpWithPassword } from "./actions";
+import { signInWithGoogle, signInWithPassword } from "./actions";
 
 const syne = Syne({
   subsets: ["latin"],
   weight: ["700", "800"],
   variable: "--font-syne",
 });
-
-const authSchema = z.object({
-  email: z.string().email({ message: "E-mail inválido" }),
-  password: z.string().min(6, { message: "Mínimo de 6 caracteres" }),
-});
-type AuthFormData = z.infer<typeof authSchema>;
 
 function GoogleIcon() {
   return (
@@ -32,24 +24,43 @@ function GoogleIcon() {
   );
 }
 
+// Slide variants for step transitions
+const slideVariants = {
+  enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
+};
+
 export default function LoginPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [step, setStep] = useState<1 | 2>(1);
+  const [direction, setDirection] = useState(1);
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
   const [isPendingGoogle, startGoogleTransition] = useTransition();
   const [isPendingForm, startFormTransition] = useTransition();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AuthFormData>({
-    resolver: zodResolver(authSchema),
-  });
+  const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-  const switchTab = (t: "login" | "register") => {
-    setTab(t);
+  const handleContinue = () => {
+    if (!isValidEmail(email)) {
+      setEmailError("Digite um e-mail válido.");
+      return;
+    }
+    setEmailError("");
     setServerError("");
-    setSuccessMsg("");
-    reset();
+    setDirection(1);
+    setStep(2);
+  };
+
+  const handleBack = () => {
+    setDirection(-1);
+    setStep(1);
+    setServerError("");
+    setPassword("");
   };
 
   const handleGoogleLogin = () => {
@@ -60,32 +71,17 @@ export default function LoginPage() {
     });
   };
 
-  const onSubmit = (data: AuthFormData) => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (step === 1) { handleContinue(); return; }
+    if (!password || password.length < 6) { setServerError("Senha deve ter ao menos 6 caracteres."); return; }
     setServerError("");
-    setSuccessMsg("");
     startFormTransition(async () => {
-      if (tab === "login") {
-        const result = await signInWithPassword(data.email, data.password);
-        if (result?.error) {
-          setServerError(
-            result.error.includes("Invalid login credentials")
-              ? "E-mail ou senha inválidos. Verifique e tente novamente."
-              : result.error
-          );
-        } else {
-          router.push("/");
-        }
+      const result = await signInWithPassword(email.trim(), password);
+      if (result?.error) {
+        setServerError(result.error);
       } else {
-        const result = await signUpWithPassword(data.email, data.password);
-        if (result?.error) {
-          setServerError(
-            result.error.includes("already registered")
-              ? "Este e-mail já está em uso. Tente fazer login."
-              : result.error
-          );
-        } else {
-          setSuccessMsg("Conta criada! Verifique seu e-mail para confirmar.");
-        }
+        router.push("/app");
       }
     });
   };
@@ -95,23 +91,18 @@ export default function LoginPage() {
   return (
     <div className={`${syne.variable} auth-root`}>
 
-      {/* ── Painel de Marca (apenas desktop) ──────────────────── */}
+      {/* ── Brand panel (desktop only) ── */}
       <aside className="auth-brand hidden lg:flex" aria-hidden="true">
-        {/* Elementos decorativos de fundo isolados – não afetam o overflow do texto */}
         <div className="auth-brand-bg">
           <div className="auth-brand-grid" />
           <div className="auth-brand-glow" />
           <div className="auth-brand-watermark">B</div>
         </div>
         <div className="auth-brand-accent" />
-
-        {/* Logo */}
         <div className="auth-brand-top">
           <span className="auth-brand-gem" />
           <span className="auth-brand-name-sm">Balcão Rápido</span>
         </div>
-
-        {/* Headline editorial */}
         <div className="auth-brand-center">
           <p className="auth-eyebrow">PDV Para Restaurantes</p>
           <h1 className="auth-display">
@@ -123,8 +114,6 @@ export default function LoginPage() {
             Para restaurantes que não param.
           </p>
         </div>
-
-        {/* Stats */}
         <div className="auth-brand-stats">
           <div className="auth-stat">
             <span className="auth-stat-num">10k+</span>
@@ -138,52 +127,148 @@ export default function LoginPage() {
         </div>
       </aside>
 
-      {/* ── Painel do Formulário ──────────────────────────────── */}
+      {/* ── Form panel ── */}
       <section className="auth-panel">
-
-        {/* Logo mobile */}
         <div className="auth-mobile-bar lg:hidden" aria-label="Balcão Rápido">
           <span className="auth-brand-gem-sm" />
           <span className="auth-mobile-name">Balcão Rápido</span>
         </div>
 
-        <div className="auth-form-wrap">
+        <div className="auth-form-wrap" style={{ overflow: "hidden" }}>
 
-          {/* Cabeçalho */}
-          <div className="auth-form-head">
-            <h2 className="auth-form-title">
-              {tab === "login" ? "Bem-vindo de volta." : "Criar conta."}
-            </h2>
-            <p className="auth-form-subtitle">
-              {tab === "login"
-                ? "Entre para acessar o seu PDV."
-                : "Comece a usar o Balcão Rápido hoje."}
-            </p>
+          {/* Step header — slides with content */}
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={step}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+            >
+              <div className="auth-form-head">
+                {step === 1 ? (
+                  <>
+                    <h2 className="auth-form-title">Bem-vindo de volta.</h2>
+                    <p className="auth-form-subtitle">Entre para acessar o seu PDV.</p>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="flex items-center gap-1.5 text-xs font-bold dash-label hover:dash-value transition-colors mb-3"
+                    >
+                      <ArrowLeft size={13} /> Voltar
+                    </button>
+                    <h2 className="auth-form-title">Digite sua senha.</h2>
+                    <p className="auth-form-subtitle" style={{ wordBreak: "break-all" }}>
+                      {email}
+                    </p>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Error */}
+          <AnimatePresence>
+            {serverError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="auth-alert auth-alert--error"
+                role="alert"
+              >
+                <AlertCircle size={14} className="shrink-0 mt-px" />
+                <p>{serverError}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="auth-fields" noValidate>
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.div
+                key={step}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.22, ease: "easeInOut" }}
+                className="flex flex-col gap-4"
+              >
+                {step === 1 ? (
+                  <div className="auth-field">
+                    <label className="auth-label" htmlFor="auth-email">E-mail</label>
+                    <input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      autoFocus
+                      placeholder="seu@restaurante.com"
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); setEmailError(""); }}
+                      onKeyDown={e => e.key === "Enter" && handleContinue()}
+                      className="auth-input"
+                    />
+                    {emailError && <span className="auth-err">{emailError}</span>}
+                  </div>
+                ) : (
+                  <div className="auth-field">
+                    <label className="auth-label" htmlFor="auth-pass">Senha</label>
+                    <div className="auth-input-wrap">
+                      <input
+                        id="auth-pass"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        autoFocus
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="auth-input auth-input--pw"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={() => setShowPassword(v => !v)}
+                        className="auth-pw-toggle"
+                        aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                      >
+                        {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="auth-submit-btn"
+                >
+                  {isPendingForm ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <>
+                      <span>{step === 1 ? "Continuar" : "Entrar"}</span>
+                      <ArrowRight size={16} />
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            </AnimatePresence>
+          </form>
+
+          {/* Divider + Google */}
+          <div className="auth-divider-row" aria-hidden="true">
+            <span className="auth-divider-line" />
+            <span className="auth-divider-txt">ou</span>
+            <span className="auth-divider-line" />
           </div>
 
-          {/* Tabs – estilo underline */}
-          <div className="auth-tabs-row" role="tablist">
-            <button
-              role="tab"
-              aria-selected={tab === "login"}
-              type="button"
-              onClick={() => switchTab("login")}
-              className={`auth-tab${tab === "login" ? " auth-tab--active" : ""}`}
-            >
-              Entrar
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === "register"}
-              type="button"
-              onClick={() => switchTab("register")}
-              className={`auth-tab${tab === "register" ? " auth-tab--active" : ""}`}
-            >
-              Criar Conta
-            </button>
-          </div>
-
-          {/* Google */}
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -196,85 +281,6 @@ export default function LoginPage() {
             }
             <span>Continuar com Google</span>
           </button>
-
-          {/* Divisor */}
-          <div className="auth-divider-row" aria-hidden="true">
-            <span className="auth-divider-line" />
-            <span className="auth-divider-txt">ou e-mail</span>
-            <span className="auth-divider-line" />
-          </div>
-
-          {/* Feedback */}
-          {serverError && (
-            <div className="auth-alert auth-alert--error" role="alert">
-              <AlertCircle size={14} className="shrink-0 mt-px" />
-              <p>{serverError}</p>
-            </div>
-          )}
-          {successMsg && (
-            <div className="auth-alert auth-alert--success" role="status">
-              <span className="shrink-0 font-bold">✓</span>
-              <p>{successMsg}</p>
-            </div>
-          )}
-
-          {/* Formulário */}
-          <form onSubmit={handleSubmit(onSubmit)} className="auth-fields" noValidate>
-
-            <div className="auth-field">
-              <label className="auth-label" htmlFor="auth-email">E-mail</label>
-              <input
-                id="auth-email"
-                type="email"
-                autoComplete="email"
-                autoFocus
-                placeholder="seu@restaurante.com"
-                {...register("email")}
-                className="auth-input"
-              />
-              {errors.email && <span className="auth-err">{errors.email.message}</span>}
-            </div>
-
-            <div className="auth-field">
-              <label className="auth-label" htmlFor="auth-pass">Senha</label>
-              <div className="auth-input-wrap">
-                <input
-                  id="auth-pass"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={tab === "login" ? "current-password" : "new-password"}
-                  placeholder="••••••••"
-                  {...register("password")}
-                  className="auth-input auth-input--pw"
-                />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setShowPassword(v => !v)}
-                  className="auth-pw-toggle"
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {errors.password && <span className="auth-err">{errors.password.message}</span>}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="auth-submit-btn"
-            >
-              {isPendingForm
-                ? <Loader2 size={16} className="animate-spin" />
-                : (
-                  <>
-                    <span>{tab === "login" ? "Entrar" : "Criar Conta"}</span>
-                    <ArrowRight size={16} />
-                  </>
-                )
-              }
-            </button>
-          </form>
 
           <p className="auth-footer-txt">
             Ao entrar, você concorda com os{" "}

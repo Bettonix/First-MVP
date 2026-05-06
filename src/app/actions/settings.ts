@@ -61,7 +61,7 @@ export async function editarProduto(
   if (!exists) return { error: "Produto não encontrado." };
 
   await prisma.produto.update({
-    where: { id: BigInt(id) },
+    where: { id: BigInt(id), tenantId },
     data: parsed.data,
   });
 
@@ -78,7 +78,7 @@ export async function excluirProduto(
   const exists = await prisma.produto.findFirst({ where: { id: BigInt(id), tenantId }, select: { id: true } });
   if (!exists) return { error: "Produto não encontrado." };
 
-  await prisma.produto.delete({ where: { id: BigInt(id) } });
+  await prisma.produto.update({ where: { id: BigInt(id), tenantId }, data: { ativo: false } });
 
   revalidatePath("/settings");
   revalidatePath("/");
@@ -138,7 +138,7 @@ export async function updateEstoque(
   }
 
   await prisma.produto.update({
-    where: { id: BigInt(id) },
+    where: { id: BigInt(id), tenantId },
     data,
   });
 
@@ -164,7 +164,7 @@ export async function entradaEstoque(
   const novoEstoque = produto.estoqueAtual + quantidade;
 
   await Promise.all([
-    prisma.produto.update({ where: { id: BigInt(id) }, data: { estoqueAtual: novoEstoque } }),
+    prisma.produto.update({ where: { id: BigInt(id), tenantId }, data: { estoqueAtual: novoEstoque } }),
     prisma.movimentacaoEstoque.create({
       data: {
         tenantId,

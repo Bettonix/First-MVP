@@ -9,8 +9,8 @@ interface RevenueChartProps {
 export function RevenueChart({ data }: RevenueChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-slate-50 rounded-2xl border border-slate-100">
-        <p className="text-slate-400 font-semibold text-sm">Sem dados para o período selecionado.</p>
+      <div className="dash-empty flex flex-col items-center justify-center h-64 rounded-2xl">
+        <p className="dash-subtitle font-semibold text-sm">Sem dados para o período selecionado.</p>
       </div>
     );
   }

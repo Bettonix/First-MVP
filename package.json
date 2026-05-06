@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sonar": "docker run --rm -e SONAR_HOST_URL=http://host.docker.internal:9000 -e SONAR_TOKEN=$SONAR_TOKEN -v \"$(pwd):/usr/src\" sonarsource/sonar-scanner-cli"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

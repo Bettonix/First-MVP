@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAberto: boolean, insights?: any, onMessage?: (msg: string, type: 'success' | 'error') => void }) {
+export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAberto: boolean, insights?: { totalHojeCentavos?: number; vaultCentavos?: number }, onMessage?: (msg: string, type: 'success' | 'error') => void }) {
   const [modalType, setModalType] = useState<'ABRIR' | 'FECHAR' | 'SANGRIA' | 'REFORCO' | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -139,13 +139,13 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
                     onClick={() => openAction('REFORCO')}
                     className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold dash-value dash-row-hover transition-colors duration-100"
                   >
-                    <ArrowDownToLine size={15} className="text-emerald-400" />
+                    <ArrowDownToLine size={15} style={{ color: "var(--oliva)" }} />
                     Reforço
                   </button>
-                  <div className="h-px bg-white/[0.06] mx-3" />
+                  <div className="h-px dash-divider mx-3" />
                   <button
                     onClick={() => openAction('FECHAR')}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold text-neutral-400 hover:bg-white/5 hover:text-neutral-200 transition-colors duration-100"
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold dash-label dash-row-hover hover:dash-value transition-colors duration-100"
                   >
                     <Lock size={15} className="text-amber-500/80" />
                     Fechar Caixa
@@ -157,48 +157,48 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
         </AnimatePresence>
       </div>
 
-      {/* Modal Bottom Sheet — inalterado */}
+      {/* Modal Bottom Sheet */}
       {modalType && (
         <div
           className="fixed inset-0 z-50 flex items-end lg:items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={() => setModalType(null)}
         >
           <div
-            className="bg-[#13161A] w-full lg:w-[420px] rounded-t-3xl lg:rounded-3xl p-6 pb-8 shadow-2xl border border-neutral-800"
+            className="dash-card w-full lg:w-[420px] rounded-t-3xl lg:rounded-3xl p-6 pb-8 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle (Mobile) */}
-            <div className="w-10 h-1 bg-neutral-700 rounded-full mx-auto mb-5 lg:hidden" />
+            <div className="w-10 h-1 rounded-full mx-auto mb-5 lg:hidden" style={{ backgroundColor: "var(--border-md)" }} />
 
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-bold text-neutral-100">
+              <h3 className="text-lg font-bold dash-title">
                 {modalTitles[modalType]}
               </h3>
               <button
                 onClick={() => setModalType(null)}
-                className="p-1.5 hover:bg-neutral-800 rounded-full transition-colors"
+                className="p-1.5 rounded-full transition-colors hover:bg-[var(--muted)]"
               >
-                <X size={18} className="text-neutral-500" />
+                <X size={18} className="dash-label" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               {modalType === 'FECHAR' && insights && (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-2 space-y-3">
+                <div className="rounded-xl p-4 mb-2 space-y-3 dash-card-muted">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-neutral-400">Vendas do Turno (Din+Pix)</span>
-                    <span className="font-bold text-neutral-200">{fmt(insights.totalHojeCentavos || 0)}</span>
+                    <span className="dash-subtitle">Vendas do Turno (Din+Pix)</span>
+                    <span className="font-bold dash-value">{fmt(insights.totalHojeCentavos || 0)}</span>
                   </div>
-                  <div className="h-px bg-white/10 w-full" />
+                  <div className="h-px w-full" style={{ backgroundColor: "var(--border)" }} />
                   <div className="flex justify-between items-center">
-                    <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Saldo Esperado Gaveta</span>
-                    <span className="font-black text-emerald-400 text-xl tracking-tighter">{fmt(insights.vaultCentavos || 0)}</span>
+                    <span className="dash-label font-bold uppercase tracking-wider text-[10px]">Saldo Esperado Gaveta</span>
+                    <span className="font-black text-xl tracking-tighter" style={{ color: "var(--brasa)" }}>{fmt(insights.vaultCentavos || 0)}</span>
                   </div>
                 </div>
               )}
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">
+                <label className="text-[10px] font-black dash-label uppercase tracking-widest">
                   {modalLabels[modalType]}
                 </label>
                 <input
@@ -210,20 +210,13 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
                   value={valor}
                   onChange={(e) => setValor(e.target.value)}
                   placeholder="0,00"
-                  className="
-                    w-full py-3 px-4
-                    bg-[#191D24] text-neutral-100 text-2xl font-bold tabular-nums
-                    placeholder:text-neutral-600
-                    border border-neutral-700/50 rounded-xl
-                    outline-none transition-all duration-150
-                    focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
-                  "
+                  className="dash-input w-full py-3 px-4 text-2xl font-bold tabular-nums rounded-xl outline-none transition-all duration-150 focus:ring-2 focus:ring-[rgba(211,84,0,0.2)] focus:border-[var(--brasa)]"
                 />
               </div>
 
               {(modalType === 'SANGRIA' || modalType === 'REFORCO') && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  <label className="text-xs font-semibold dash-label uppercase tracking-wider">
                     Motivo
                   </label>
                   <input
@@ -232,14 +225,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
                     value={motivo}
                     onChange={(e) => setMotivo(e.target.value)}
                     placeholder="Ex: Troco, pagamento fornecedor..."
-                    className="
-                      w-full py-3 px-4
-                      bg-[#191D24] text-neutral-100 text-base font-medium
-                      placeholder:text-neutral-600
-                      border border-neutral-700/50 rounded-xl
-                      outline-none transition-all duration-150
-                      focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
-                    "
+                    className="dash-input w-full py-3 px-4 text-base font-medium rounded-xl outline-none transition-all duration-150 focus:ring-2 focus:ring-[rgba(211,84,0,0.2)] focus:border-[var(--brasa)]"
                   />
                 </div>
               )}
@@ -247,14 +233,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
               <button
                 type="submit"
                 disabled={loading}
-                className="
-                  w-full h-12 mt-1
-                  bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700
-                  disabled:bg-neutral-800 disabled:text-neutral-600
-                  text-white font-bold text-sm rounded-xl
-                  flex justify-center items-center gap-2
-                  transition-all duration-150 active:scale-[0.98]
-                "
+                className="w-full h-12 mt-1 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] disabled:opacity-40 text-white font-bold text-sm rounded-xl flex justify-center items-center gap-2 transition-all duration-150 active:scale-[0.98]"
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : 'CONFIRMAR'}
               </button>

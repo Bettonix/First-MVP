@@ -13,14 +13,14 @@ import { useCartStore } from "@/store/useCartStore";
 import type { UserRole } from "@/lib/auth";
 
 const NAV_LINKS = [
-  { href: "/",                    icon: ShoppingCart,    label: "Balcão"       },
+  { href: "/app",                    icon: ShoppingCart,    label: "Balcão"       },
   { href: "/dashboard",           icon: LayoutDashboard, label: "Dashboard BI" },
   { href: "/dashboard/comandas",  icon: ClipboardList,   label: "Comandas"     },
   { href: "/historico",           icon: History,         label: "Histórico"    },
 ];
 
 const MOBILE_NAV = [
-  { href: "/",                    icon: ShoppingCart,    label: "Balcão"    },
+  { href: "/app",                    icon: ShoppingCart,    label: "Balcão"    },
   { href: "/dashboard",           icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/comandas",  icon: ClipboardList,   label: "Comandas"  },
   { href: "/historico",           icon: History,         label: "Histórico" },

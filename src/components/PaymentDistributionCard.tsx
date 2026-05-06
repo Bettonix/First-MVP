@@ -25,8 +25,8 @@ function MetodoIcon({ metodo }: { metodo: string }) {
 export function PaymentDistributionCard({ data }: PaymentDistributionCardProps) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-48 bg-slate-50 rounded-2xl border border-slate-100">
-        <p className="text-slate-400 font-semibold text-sm">Sem dados de pagamento.</p>
+      <div className="dash-empty flex flex-col items-center justify-center h-48 rounded-2xl">
+        <p className="dash-subtitle font-semibold text-sm">Sem dados de pagamento.</p>
       </div>
     );
   }

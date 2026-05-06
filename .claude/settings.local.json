@@ -19,7 +19,11 @@
       "Bash(rtk smart *)",
       "Bash(rtk json *)",
       "Bash(rtk prisma *)",
-      "Bash(rtk proxy *)"
+      "Bash(rtk proxy *)",
+      "Bash(xargs cat)",
+      "Bash(npm install *)",
+      "Bash(rm /Projetos/First-MVP/tests/debug-offline.spec.ts)",
+      "Bash(PLAYWRIGHT_TEST_BYPASS=1 rtk playwright test tests/pdv-integration.spec.ts --reporter=list)"
     ]
   }
 }

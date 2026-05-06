@@ -89,7 +89,10 @@ export function HistoricoView({ initialData, initialFilters, userRole, nomeLoja 
       <header className="shrink-0 px-5 pt-6 pb-4 border-b dash-border max-w-none">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-black dash-title tracking-tight">Histórico</h1>
+            <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: "linear-gradient(135deg, #1c1917 0%, #57534e 100%)" }}>
+              Histórico
+            </h1>
             <p className="text-xs dash-label font-semibold mt-0.5">
               {data.vendas.length + data.comandas.length} registros · {fmt(data.totalVendasCentavos + data.totalComandasCentavos)} total
             </p>
@@ -219,19 +222,19 @@ export function HistoricoView({ initialData, initialFilters, userRole, nomeLoja 
 
         {/* Search */}
         <div className="relative mt-3">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-600 pointer-events-none" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 dash-label pointer-events-none" />
           <input
             ref={searchRef}
             type="text"
             value={filters.busca}
             onChange={(e) => pushFilters({ busca: e.target.value })}
             placeholder={filters.tab === "vendas" ? "Buscar por ID da venda…" : "Buscar por mesa ou cliente…"}
-            className="w-full pl-9 pr-9 py-2.5 bg-white/5 border dash-border rounded-xl text-sm dash-value placeholder:dash-subtitle outline-none focus:border-[var(--brasa-border)] focus:ring-1 focus:ring-emerald-500/20 transition-all"
+            className="w-full pl-9 pr-9 py-2.5 dash-input border dash-border rounded-xl text-sm dash-value placeholder:dash-subtitle outline-none focus:border-[var(--brasa)] focus:ring-1 focus:ring-[rgba(211,84,0,0.1)] transition-all"
           />
           {filters.busca && (
             <button
               onClick={() => pushFilters({ busca: "" })}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 hover:dash-label transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 dash-label hover:dash-value transition-colors"
               aria-label="Limpar busca"
             >
               <X size={14} />
@@ -260,7 +263,7 @@ export function HistoricoView({ initialData, initialFilters, userRole, nomeLoja 
           <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-2 ${isPending ? "opacity-60 pointer-events-none" : ""}`}>
             {isPending && activeList.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-[72px] bg-white/5 rounded-2xl animate-pulse" />
+                <div key={i} className="h-[72px] dash-card-muted rounded-2xl animate-pulse" />
               ))
             ) : activeList.length === 0 ? (
               <EmptyState tab={filters.tab} />
@@ -326,7 +329,7 @@ export function HistoricoView({ initialData, initialFilters, userRole, nomeLoja 
               >
                 {/* Drag handle */}
                 <div className="flex justify-center pt-3 pb-1 shrink-0">
-                  <div className="w-10 h-1 bg-white/10 rounded-full" />
+                  <div className="w-10 h-1 dash-divider rounded-full" />
                 </div>
                 {selectedVenda && <VendaDetail venda={selectedVenda} onClose={closeDetail} mobile userRole={userRole} onEstorno={(fn) => setPinAuthPending(() => fn)} nomeLoja={nomeLoja} instagramUrl={instagramUrl} onReceipt={(d) => { setReceiptData(d); setReceiptOpen(true); }} />}
                 {selectedComanda && <ComandaDetail comanda={selectedComanda} onClose={closeDetail} mobile />}
@@ -360,8 +363,8 @@ function EmptyState({ tab }: { tab: Tab }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center opacity-50">
       {tab === "vendas" ? <Receipt size={40} className="mb-4 dash-label" /> : <ClipboardList size={40} className="mb-4 dash-label" />}
-      <p className="font-bold text-neutral-400">Nenhum registro encontrado</p>
-      <p className="text-sm text-neutral-600 mt-1">Tente ajustar os filtros ou selecionar outra data.</p>
+      <p className="font-bold dash-label">Nenhum registro encontrado</p>
+      <p className="text-sm dash-subtitle mt-1">Tente ajustar os filtros ou selecionar outra data.</p>
     </div>
   );
 }
@@ -411,8 +414,8 @@ function yesterdayISO() {
 // ─── Badge components ─────────────────────────────────────────────────────────
 function MetodoBadge({ metodo, size = "sm" }: { metodo: string; size?: "xs" | "sm" }) {
   const map: Record<string, { icon: React.ReactNode; cls: string; label: string }> = {
-    PIX:      { icon: <QrCode    size={size === "xs" ? 10 : 12} />, cls: "bg-emerald-500/10 dash-highlight-text border-emerald-500/20", label: "PIX" },
-    DINHEIRO: { icon: <Banknote  size={size === "xs" ? 10 : 12} />, cls: "bg-blue-500/10    text-blue-400    border-blue-500/20",    label: "Dinheiro" },
+    PIX:      { icon: <QrCode    size={size === "xs" ? 10 : 12} />, cls: "bg-[var(--brasa-light)] dash-highlight-text border-[var(--brasa-border)]", label: "PIX" },
+    DINHEIRO: { icon: <Banknote  size={size === "xs" ? 10 : 12} />, cls: "bg-[rgba(92,107,58,0.1)] text-[var(--oliva)] border-[rgba(92,107,58,0.2)]",    label: "Dinheiro" },
     MISTO:    { icon: <CreditCard size={size === "xs" ? 10 : 12} />, cls: "bg-amber-500/10  text-amber-400   border-amber-500/20",   label: "Misto" },
   };
   const { icon, cls, label } = map[metodo] ?? { icon: null, cls: "dash-muted dash-label border dash-border", label: metodo };
@@ -473,7 +476,7 @@ function VendaDetail({
         <button
           onClick={onClose}
           aria-label="Fechar detalhes"
-          className="w-9 h-9 rounded-xl bg-white/5 hover:dash-muted flex items-center justify-center dash-label hover:dash-valueral-200 transition-colors"
+          className="w-9 h-9 rounded-xl dash-muted hover:dash-card flex items-center justify-center dash-label transition-colors"
         >
           {mobile ? <ChevronDown size={18} /> : <X size={18} />}
         </button>
@@ -487,7 +490,7 @@ function VendaDetail({
           {fmtDate(venda.criadoEm)} às {fmtTime(venda.criadoEm)}
         </span>
         <span className="flex items-center gap-1.5 text-xs dash-label font-semibold">
-          <CheckCircle2 size={12} className="text-emerald-500" />
+          <CheckCircle2 size={12} style={{ color: "var(--success)" }} />
           Concluído
         </span>
       </div>
@@ -501,13 +504,13 @@ function VendaDetail({
           <div key={i} className="flex items-center justify-between dash-muted border dash-border rounded-xl p-3.5">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 dash-muted rounded-lg flex items-center justify-center shrink-0">
-                <span className="text-xs font-black text-neutral-400">{item.quantidade}×</span>
+                <span className="text-xs font-black dash-label">{item.quantidade}×</span>
               </div>
               <span className="font-semibold dash-value text-sm truncate">{item.nome}</span>
             </div>
             <div className="text-right shrink-0 ml-3">
               <p className="font-black dash-value text-sm tabular-nums">{fmt(item.precoCentavos * item.quantidade)}</p>
-              <p className="text-xs text-neutral-600 font-medium">{fmt(item.precoCentavos)} / un</p>
+              <p className="text-xs dash-subtitle font-medium">{fmt(item.precoCentavos)} / un</p>
             </div>
           </div>
         ))}
@@ -517,7 +520,7 @@ function VendaDetail({
       <div className="border-t border-white/10 px-6 py-5 space-y-2 shrink-0">
         <div className="flex justify-between text-sm">
           <span className="dash-label font-semibold">Subtotal</span>
-          <span className="text-neutral-300 font-bold tabular-nums">{fmt(subtotal)}</span>
+          <span className="dash-value font-bold tabular-nums">{fmt(subtotal)}</span>
         </div>
         {subtotal !== venda.totalCentavos && (
           <div className="flex justify-between text-sm">
@@ -526,7 +529,7 @@ function VendaDetail({
           </div>
         )}
         <div className="flex justify-between items-center pt-2 border-t dash-border">
-          <span className="text-neutral-400 font-bold">Total pago</span>
+          <span className="dash-label font-bold">Total pago</span>
           <span className="text-2xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(venda.totalCentavos)}</span>
         </div>
         {onEstorno && (
@@ -578,18 +581,18 @@ function VendaCard({ venda, selected, onClick }: { venda: VendaHistorico; select
       animate={{ opacity: 1, y: 0 }}
       className={`w-full text-left p-4 rounded-2xl border transition-all duration-150 flex items-center gap-3 group ${
         selected
-          ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+          ? "bg-[var(--brasa-light)] border-[var(--brasa-border)] shadow-[0_0_0_1px_var(--brasa-border)]"
           : "dash-card hover:border-[var(--border-md)]"
       }`}
     >
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-        selected ? "dash-pill-active" : "bg-white/5 dash-label group-hover:bg-emerald-500/10 group-hover:dash-highlight-text"
+        selected ? "dash-pill-active" : "dash-muted dash-label group-hover:dash-icon-accent group-hover:dash-highlight-text"
       }`}>
         {venda.metodoPagto === "PIX" ? <QrCode size={18} /> : venda.metodoPagto === "DINHEIRO" ? <Banknote size={18} /> : <CreditCard size={18} />}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className={`font-black text-sm truncate ${selected ? "text-emerald-300" : "dash-value"}`}>
+          <span className={`font-black text-sm truncate ${selected ? "dash-highlight-text" : "dash-value"}`}>
             #{venda.id.slice(-8)}
           </span>
           <MetodoBadge metodo={venda.metodoPagto} size="xs" />
@@ -602,7 +605,7 @@ function VendaCard({ venda, selected, onClick }: { venda: VendaHistorico; select
         <p className={`font-black tabular-nums tracking-tighter ${selected ? "dash-highlight-text" : "dash-value"}`}>
           {fmt(venda.totalCentavos)}
         </p>
-        <ChevronRight size={14} className={`ml-auto mt-0.5 transition-colors ${selected ? "text-emerald-500" : "text-neutral-700 group-hover:dash-label"}`} />
+        <ChevronRight size={14} className={`ml-auto mt-0.5 transition-colors ${selected ? "dash-highlight-text" : "dash-label group-hover:dash-value"}`} />
       </div>
     </motion.button>
   );
@@ -619,22 +622,22 @@ function ComandaCard({ comanda, selected, onClick }: { comanda: ComandaHistorico
       animate={{ opacity: 1, y: 0 }}
       className={`w-full text-left p-4 rounded-2xl border transition-all duration-150 flex items-center gap-3 group ${
         selected
-          ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]"
+          ? "bg-[var(--brasa-light)] border-[var(--brasa-border)] shadow-[0_0_0_1px_var(--brasa-border)]"
           : "dash-card hover:border-[var(--border-md)]"
       }`}
     >
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-        selected ? "dash-pill-active" : "bg-white/5 dash-label group-hover:bg-emerald-500/10 group-hover:dash-highlight-text"
+        selected ? "dash-pill-active" : "dash-muted dash-label group-hover:dash-icon-accent group-hover:dash-highlight-text"
       }`}>
         <TableProperties size={18} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className={`font-black text-sm truncate ${selected ? "text-emerald-300" : "dash-value"}`}>
+          <span className={`font-black text-sm truncate ${selected ? "dash-highlight-text" : "dash-value"}`}>
             {comanda.mesaNome}
           </span>
           {comanda.name && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-white/5 dash-label uppercase tracking-tight truncate max-w-[80px]">
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md dash-badge uppercase tracking-tight truncate max-w-[80px]">
               {comanda.name}
             </span>
           )}
@@ -647,7 +650,7 @@ function ComandaCard({ comanda, selected, onClick }: { comanda: ComandaHistorico
         <p className={`font-black tabular-nums tracking-tighter ${selected ? "dash-highlight-text" : "dash-value"}`}>
           {fmt(comanda.totalCentavos)}
         </p>
-        <ChevronRight size={14} className={`ml-auto mt-0.5 transition-colors ${selected ? "text-emerald-500" : "text-neutral-700 group-hover:dash-label"}`} />
+        <ChevronRight size={14} className={`ml-auto mt-0.5 transition-colors ${selected ? "dash-highlight-text" : "dash-label group-hover:dash-value"}`} />
       </div>
     </motion.button>
   );
@@ -669,7 +672,7 @@ function ComandaDetail({ comanda, onClose, mobile }: { comanda: ComandaHistorico
         <button
           onClick={onClose}
           aria-label="Fechar detalhes"
-          className="w-9 h-9 rounded-xl bg-white/5 hover:dash-muted flex items-center justify-center dash-label hover:dash-valueral-200 transition-colors"
+          className="w-9 h-9 rounded-xl dash-muted hover:dash-card flex items-center justify-center dash-label transition-colors"
         >
           {mobile ? <ChevronDown size={18} /> : <X size={18} />}
         </button>
@@ -681,7 +684,7 @@ function ComandaDetail({ comanda, onClose, mobile }: { comanda: ComandaHistorico
         </span>
         {comanda.fechadaEm && (
           <span className="flex items-center gap-1.5 text-xs dash-label font-semibold">
-            <CheckCircle2 size={12} className="text-emerald-500" /> Fechada: {fmtTime(comanda.fechadaEm)}
+            <CheckCircle2 size={12} style={{ color: "var(--success)" }} /> Fechada: {fmtTime(comanda.fechadaEm)}
           </span>
         )}
       </div>
@@ -691,18 +694,18 @@ function ComandaDetail({ comanda, onClose, mobile }: { comanda: ComandaHistorico
           <ClipboardList size={11} /> Itens ({comanda.itens.length})
         </p>
         {comanda.itens.length === 0 ? (
-          <p className="text-sm text-neutral-600 text-center py-8">Nenhum item registrado.</p>
+          <p className="text-sm dash-subtitle text-center py-8">Nenhum item registrado.</p>
         ) : comanda.itens.map((item, i) => (
           <div key={i} className="flex items-center justify-between dash-muted border dash-border rounded-xl p-3.5">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 dash-muted rounded-lg flex items-center justify-center shrink-0">
-                <span className="text-xs font-black text-neutral-400">{item.quantidade}×</span>
+                <span className="text-xs font-black dash-label">{item.quantidade}×</span>
               </div>
               <span className="font-semibold dash-value text-sm truncate">{item.nome}</span>
             </div>
             <div className="text-right shrink-0 ml-3">
               <p className="font-black dash-value text-sm tabular-nums">{fmt(item.precoCentavos * item.quantidade)}</p>
-              <p className="text-xs text-neutral-600 font-medium">{fmt(item.precoCentavos)} / un</p>
+              <p className="text-xs dash-subtitle font-medium">{fmt(item.precoCentavos)} / un</p>
             </div>
           </div>
         ))}
@@ -711,10 +714,10 @@ function ComandaDetail({ comanda, onClose, mobile }: { comanda: ComandaHistorico
       <div className="border-t border-white/10 px-6 py-5 space-y-2 shrink-0">
         <div className="flex justify-between text-sm">
           <span className="dash-label font-semibold">Subtotal</span>
-          <span className="text-neutral-300 font-bold tabular-nums">{fmt(subtotal)}</span>
+          <span className="dash-value font-bold tabular-nums">{fmt(subtotal)}</span>
         </div>
         <div className="flex justify-between items-center pt-2 border-t dash-border">
-          <span className="text-neutral-400 font-bold">Total</span>
+          <span className="dash-label font-bold">Total</span>
           <span className="text-2xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(comanda.totalCentavos)}</span>
         </div>
       </div>

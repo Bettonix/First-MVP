@@ -14,43 +14,51 @@ interface StatCardProps {
   };
 }
 
-export function StatCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon: Icon, 
-  iconColorClass, 
-  iconBgClass, 
-  glowColorClass,
-  trend 
+export function StatCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  iconColorClass,
+  iconBgClass,
+  trend,
 }: StatCardProps) {
   const hasTrend = trend !== undefined && trend.value !== 0;
   const isPositive = hasTrend && trend.value > 0;
-  
+
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col justify-between h-32 relative overflow-hidden">
-      <div className="flex justify-between items-start z-10">
-        <div className="flex flex-col">
-          <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">{title}</span>
+    <div className="dash-card rounded-3xl p-5 flex flex-col justify-between h-32 relative overflow-hidden"
+      style={{ borderTop: "2px solid var(--brasa)" }}>
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-1">
+          <span className="dash-label text-[10px] font-black uppercase tracking-widest">{title}</span>
           {hasTrend && (
-            <div className={`mt-1 flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full w-max ${isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              <span>{isPositive ? '+' : ''}{trend.value.toFixed(1)}% {trend.label}</span>
+            <div
+              className="flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full w-max"
+              style={isPositive
+                ? { backgroundColor: "var(--success-bg)", color: "var(--success)" }
+                : { backgroundColor: "var(--danger-bg)", color: "var(--danger)" }
+              }
+            >
+              {isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+              <span>{isPositive ? "+" : ""}{trend.value.toFixed(1)}% {trend.label}</span>
             </div>
           )}
         </div>
-        <div className={`${iconBgClass} p-2 rounded-lg ${iconColorClass}`}>
-          <Icon size={20} />
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconBgClass} ${iconColorClass}`}>
+          <Icon size={15} />
         </div>
       </div>
-      
-      <div className="flex flex-col z-10">
-        <span className="text-3xl font-black text-slate-900 truncate" title={value}>{value}</span>
-        {subtitle && <span className="text-slate-500 text-sm font-semibold truncate" title={subtitle}>{subtitle}</span>}
-      </div>
 
-      {/* Decoração minimalista */}
-      <div className={`absolute -bottom-6 -right-6 w-32 h-32 ${glowColorClass} rounded-full blur-2xl pointer-events-none`} />
+      <div className="flex flex-col">
+        <span className="dash-value text-2xl font-black tabular-nums tracking-tight truncate" title={value}>
+          {value}
+        </span>
+        {subtitle && (
+          <span className="dash-subtitle text-xs font-semibold truncate" title={subtitle}>{subtitle}</span>
+        )}
+      </div>
     </div>
   );
 }
+

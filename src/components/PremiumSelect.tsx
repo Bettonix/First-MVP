@@ -104,13 +104,13 @@ export function PremiumSelect({ options, value, onChange, className, onBlur }: P
             flex items-center justify-between gap-3
             transition-colors duration-100
             ${value === opt
-              ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
+              ? "bg-[var(--brasa-light)] text-[var(--brasa)]"
               : "dash-value dash-row-hover"
             }
           `}
         >
           {opt}
-          {value === opt && <Check size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />}
+          {value === opt && <Check size={14} className="shrink-0" style={{ color: "var(--brasa)" }} />}
         </button>
       ))}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Star, AlertTriangle } from "lucide-react";
 import { produtoSchema, ProdutoFormData, CATEGORIAS_PRODUTO } from "@/schemas/produto.schema";
@@ -13,13 +13,13 @@ interface ProductFormProps {
   submitLabel?: string;
 }
 
-const inputClass = "w-full py-4 px-5 dash-input text-lg font-bold rounded-2xl outline-none transition-all duration-200 focus:ring-2 focus:ring-[var(--brasa)]/20";
+const inputClass = "w-full py-4 px-5 dash-input text-lg font-bold rounded-2xl outline-none transition-all duration-200 focus:ring-2 focus:ring-[rgba(211,84,0,0.2)] focus:border-[var(--brasa)]";
 const labelClass = "text-[11px] font-black dash-label uppercase tracking-[0.2em] mb-2 block ml-1";
-const errorClass = "text-rose-400 text-xs font-bold mt-2 ml-1 flex items-center gap-1";
+const errorClass = "text-[var(--danger)] text-xs font-bold mt-2 ml-1 flex items-center gap-1";
 
 export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }: ProductFormProps) {
   const { register, control, handleSubmit, formState: { errors } } = useForm<ProdutoFormData>({
-    resolver: zodResolver(produtoSchema) as any,
+    resolver: zodResolver(produtoSchema) as Resolver<ProdutoFormData>,
     defaultValues: {
       nome: defaultValues?.nome || "",
       preco: defaultValues?.preco || undefined,
@@ -96,7 +96,12 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
         <span className="text-sm font-black dash-value uppercase tracking-wider">Fixar no topo (Favorito)</span>
       </label>
 
-      <button type="submit" disabled={isPending} className="mt-4 w-full h-16 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:bg-neutral-800 disabled:text-neutral-600 text-white rounded-[20px] font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.98] shadow-[0_20px_40px_rgba(16,185,129,0.2)]">
+      <button
+        type="submit"
+        disabled={isPending}
+        className="mt-4 w-full h-16 text-white rounded-[20px] font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-200 active:scale-[0.98] hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ background: "linear-gradient(135deg, #D35400 0%, #B84A00 100%)", boxShadow: "0 8px 24px rgba(211,84,0,0.3)" }}
+      >
         {isPending ? <Loader2 className="animate-spin" size={20} /> : (submitLabel || "SALVAR PRODUTO")}
       </button>
     </form>

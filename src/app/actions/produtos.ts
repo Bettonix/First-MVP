@@ -4,7 +4,6 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { produtoSchema, ProdutoFormData } from "@/schemas/produto.schema";
 import { getTenantIdOrRedirect } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
 
 // ─── CREATE ──────────────────────────────────────────────────────
 
@@ -20,15 +19,6 @@ export async function createProduto(data: ProdutoFormData) {
   const precoCustoCentavos = Math.round((result.data.precoCusto || 0) * 100);
 
   try {
-    console.log("🛠️ Tentando criar produto para Tenant:", tenantId);
-    console.log("📦 Payload Prisma:", {
-      tenantId,
-      nome: result.data.nome,
-      precoCentavos,
-      precoCustoCentavos,
-      estoqueAtual: result.data.estoqueAtual,
-    });
-
     const novoProduto = await prisma.produto.create({
       data: {
         tenantId,
@@ -46,25 +36,10 @@ export async function createProduto(data: ProdutoFormData) {
     revalidatePath("/");
     revalidateTag('products', 'max');
 
-    return { 
-      success: true as const, 
-      produto: {
-        ...novoProduto,
-        id: novoProduto.id.toString(),
-      } 
-    };
-  } catch (error: any) {
-    console.error("❌ Erro fatal ao criar produto:", {
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-      stack: error.stack
-    });
-    
-    return { 
-      success: false as const, 
-      error: `Erro no servidor: ${error.message || "Tente novamente."}` 
-    };
+    return { success: true as const, produto: { ...novoProduto, id: novoProduto.id.toString() } };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Tente novamente.";
+    return { success: false as const, error: `Erro ao criar produto: ${msg}` };
   }
 }
 
@@ -130,8 +105,9 @@ export async function toggleProdutoAtivo(produtoId: string, ativo: boolean) {
     revalidateTag('products', 'max');
 
     return { success: true as const };
-  } catch (error: any) {
-    return { success: false as const, error: error.message || "Erro ao atualizar." };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Erro ao atualizar.";
+    return { success: false as const, error: msg };
   }
 }
 
@@ -144,9 +120,8 @@ export async function updateProduto(produtoId: string, data: ProdutoFormData) {
   }
 
   const tenantId = await getTenantIdOrRedirect();
-  const supabase = await createClient();
 
-  // 4. Garantia de Inteiro: Reforce que precoCentavos e estoques sejam Math.round()
+  // Garantia de Inteiro: Reforce que precoCentavos e estoques sejam Math.round()
   const precoCentavos = Math.round(result.data.preco * 100);
   const precoCustoCentavos = Math.round((result.data.precoCusto || 0) * 100);
   const estoqueAtual = Math.round(result.data.estoqueAtual);
@@ -161,39 +136,23 @@ export async function updateProduto(produtoId: string, data: ProdutoFormData) {
   };
 
   try {
-    const { error, count } = await supabase
-      .from('Produto')
-      .update(payload, { count: 'exact' })
-      .eq('id', produtoId)
-      .eq('tenant_id', tenantId);
+    const updated = await prisma.produto.updateMany({
+      where: { id: BigInt(produtoId), tenantId },
+      data: payload,
+    });
 
-    if (error) {
-      console.error("Erro Supabase no Update:", error.message);
-      return { success: false as const, error: `Erro no Banco: ${error.message}` };
-    }
-
-    if (count === 0) {
-      return { 
-        success: false as const, 
-        error: "Produto não encontrado ou sem permissão para editar." 
-      };
+    if (updated.count === 0) {
+      return { success: false as const, error: "Produto não encontrado ou sem permissão." };
     }
 
     revalidatePath("/dashboard/produtos");
     revalidatePath("/");
     revalidateTag('products', 'max');
 
-    return { 
-      success: true as const, 
-      produto: { ...payload, id: produtoId } 
-    };
-  } catch (error: any) {
-    console.error("❌ Falha na atualização crítica:", {
-      id: produtoId,
-      message: error.message
-    });
-    
-    return { success: false as const, error: `Erro interno: ${error.message || "Tente novamente."}` };
+    return { success: true as const, produto: { ...payload, id: produtoId } };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Tente novamente.";
+    return { success: false as const, error: `Erro ao atualizar produto: ${msg}` };
   }
 }
 
@@ -216,16 +175,16 @@ export async function deleteProduto(produtoId: string) {
     }
 
     // Soft delete: marca como inativo em vez de remover fisicamente
-    await prisma.produto.update({ where: { id }, data: { ativo: false } });
+    await prisma.produto.update({ where: { id, tenantId }, data: { ativo: false } });
 
     revalidatePath("/dashboard/produtos");
     revalidatePath("/");
     revalidateTag('products', 'max');
 
     return { success: true as const };
-  } catch (error: any) {
-    console.error("Erro ao excluir produto:", error);
-    return { success: false as const, error: `Erro ao excluir: ${error.message || "Tente novamente."}` };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Tente novamente.";
+    return { success: false as const, error: `Erro ao excluir: ${msg}` };
   }
 }
 
@@ -253,8 +212,7 @@ export async function depleteStock(items: { produtoId: string; quantidade: numbe
 
     revalidatePath("/");
     return { success: true as const };
-  } catch (error) {
-    console.error("Erro ao decrementar estoque:", error);
+  } catch {
     return { success: false as const, error: "Erro ao atualizar estoque." };
   }
 }

@@ -1073,7 +1073,10 @@ export default function SettingsPage() {
             <Settings size={19} className="dash-icon-accent-fg" />
           </div>
           <div>
-            <h1 className="dash-title text-xl font-black tracking-tight">Configurações</h1>
+            <h1 className="text-xl font-black tracking-tight bg-clip-text text-transparent"
+              style={{ backgroundImage: "linear-gradient(135deg, #1c1917 0%, #57534e 100%)" }}>
+              Configurações
+            </h1>
             <p className="dash-subtitle text-xs font-medium">Gerencie estoque, mesas e preferências do sistema</p>
           </div>
         </div>

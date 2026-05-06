@@ -119,7 +119,7 @@ export function IdleLockScreen({ nomeLoja }: IdleLockScreenProps) {
             {nomeLoja && (
               <p className="dash-subtitle text-sm font-semibold mb-1">{nomeLoja}</p>
             )}
-            <p className="text-neutral-600 text-xs mb-7">Inatividade detectada. Digite o PIN do gerente para continuar.</p>
+            <p className="dash-subtitle text-xs mb-7">Inatividade detectada. Digite o PIN do gerente para continuar.</p>
 
             <div className="flex gap-3 mb-5">
               {digits.map((d, i) => (

@@ -64,7 +64,7 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
           className={`
             h-10 w-10 rounded-xl text-sm font-bold transition-all flex items-center justify-center
             ${isSelected ? 'bg-[var(--brasa)] text-white' : 
-              isToday ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
+              isToday ? 'bg-[var(--brasa-light)] text-[var(--brasa)] border border-[var(--brasa-border)]' :
               'dash-pill-inactive hover:dash-value'}
           `}
         >
@@ -106,9 +106,9 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               className={`
-                fixed bottom-0 left-0 right-0 z-[200] 
+                fixed bottom-0 left-0 right-0 z-[200]
                 lg:absolute lg:bottom-auto lg:top-12 lg:right-0 lg:left-auto lg:w-[320px]
-                bg-[#13161A] border-t lg:border border-white/10 rounded-t-[32px] lg:rounded-[32px] 
+                dash-card border-t lg:border dash-border rounded-t-[32px] lg:rounded-[32px]
                 p-6 shadow-2xl overflow-hidden
               `}
               onClick={(e) => e.stopPropagation()}
@@ -116,21 +116,21 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Selecione</span>
-                  <h4 className="text-lg font-black text-neutral-100 tracking-tighter">
-                    {months[viewDate.getMonth()]} <span className="text-neutral-500">{viewDate.getFullYear()}</span>
+                  <span className="text-[10px] font-black text-[var(--brasa)] uppercase tracking-widest">Selecione</span>
+                  <h4 className="text-lg font-black dash-title tracking-tighter">
+                    {months[viewDate.getMonth()]} <span className="dash-label">{viewDate.getFullYear()}</span>
                   </h4>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={handlePrevMonth} className="p-2 hover:bg-white/5 rounded-xl text-neutral-500 transition-colors"><ChevronLeft size={18} /></button>
-                  <button onClick={handleNextMonth} className="p-2 hover:bg-white/5 rounded-xl text-neutral-500 transition-colors"><ChevronRight size={18} /></button>
+                  <button onClick={handlePrevMonth} className="p-2 hover:dash-muted rounded-xl dash-label transition-colors"><ChevronLeft size={18} /></button>
+                  <button onClick={handleNextMonth} className="p-2 hover:dash-muted rounded-xl dash-label transition-colors"><ChevronRight size={18} /></button>
                 </div>
               </div>
 
               {/* Weekdays */}
               <div className="grid grid-cols-7 mb-2">
                 {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
-                  <div key={i} className="h-10 flex items-center justify-center text-[10px] font-black text-neutral-600 uppercase tracking-widest">
+                  <div key={i} className="h-10 flex items-center justify-center text-[10px] font-black dash-label uppercase tracking-widest">
                     {d}
                   </div>
                 ))}
@@ -142,9 +142,9 @@ export function PremiumDatePicker({ selectedDate, onDateChange, label = "Filtrar
               </div>
 
               {/* Mobile Close Handle */}
-              <button 
+              <button
                 onClick={() => setIsOpen(false)}
-                className="lg:hidden w-full mt-6 py-3 bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest text-neutral-400"
+                className="lg:hidden w-full mt-6 py-3 dash-muted rounded-2xl text-xs font-black uppercase tracking-widest dash-label"
               >
                 Fechar
               </button>

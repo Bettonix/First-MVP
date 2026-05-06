@@ -16,9 +16,9 @@ function fmt(centavos: number) {
 
 function MetodoBadge({ metodo }: { metodo: string }) {
   const map: Record<string, { icon: React.ReactNode; cls: string }> = {
-    PIX:      { icon: <QrCode    size={14} />, cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-    DINHEIRO: { icon: <Banknote  size={14} />, cls: "bg-blue-500/10    text-blue-400    border-blue-500/20" },
-    MISTO:    { icon: <CreditCard size={14} />, cls: "bg-amber-500/10   text-amber-400   border-amber-500/20" },
+    PIX:      { icon: <QrCode    size={14} />, cls: "bg-[var(--brasa-light)] text-[var(--brasa)] border-[var(--brasa-border)]" },
+    DINHEIRO: { icon: <Banknote  size={14} />, cls: "bg-[var(--oliva-light)] text-[var(--oliva)] border-[rgba(92,107,58,0.2)]" },
+    MISTO:    { icon: <CreditCard size={14} />, cls: "bg-[var(--mel-light)]   text-[var(--mel)]   border-[rgba(183,121,31,0.2)]" },
   };
   const { icon, cls } = map[metodo] ?? { icon: null, cls: "dash-muted dash-label border dash-border" };
   return (
@@ -60,7 +60,7 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
         <div className="flex items-center justify-between px-6 py-5 border-b dash-border">
           <div>
             <p className="text-xs font-bold dash-label uppercase tracking-widest">Detalhes da Venda</p>
-            <h2 className="text-xl font-black text-neutral-100 mt-0.5">Venda #{sale.id.slice(-6)}</h2>
+            <h2 className="text-xl font-black dash-title mt-0.5">Venda #{sale.id.slice(-6)}</h2>
           </div>
           <button
             onClick={onClose}
@@ -73,7 +73,7 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
         {/* Meta */}
         <div className="flex items-center gap-3 px-6 py-4 border-b dash-border">
           <MetodoBadge metodo={sale.metodoPagto} />
-          <span className="text-xs text-neutral-500 font-semibold">
+          <span className="text-xs dash-label font-semibold">
             {new Date(sale.criadoEm).toLocaleString("pt-BR", {
               day: "2-digit", month: "2-digit", year: "numeric",
               hour: "2-digit", minute: "2-digit",
@@ -89,41 +89,41 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
           {sale.itens.map((item, i) => (
             <div
               key={i}
-              className="flex items-center justify-between bg-white/[0.03] border border-white/5 rounded-xl p-4"
+              className="flex items-center justify-between dash-card-muted border dash-border rounded-xl p-4"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 bg-neutral-800 rounded-lg flex items-center justify-center shrink-0">
-                  <span className="text-xs font-black text-neutral-400">{item.quantidade}×</span>
+                <div className="w-8 h-8 dash-muted rounded-lg flex items-center justify-center shrink-0">
+                  <span className="text-xs font-black dash-label">{item.quantidade}×</span>
                 </div>
-                <span className="font-semibold text-neutral-200 text-sm truncate">{item.nome}</span>
+                <span className="font-semibold dash-value text-sm truncate">{item.nome}</span>
               </div>
               <div className="text-right shrink-0 ml-3">
-                <p className="font-black text-neutral-100 text-sm tabular-nums">
+                <p className="font-black dash-value text-sm tabular-nums">
                   {fmt(item.precoCentavos * item.quantidade)}
                 </p>
-                <p className="text-xs text-neutral-600 font-medium">{fmt(item.precoCentavos)} / un</p>
+                <p className="text-xs dash-label font-medium">{fmt(item.precoCentavos)} / un</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Summary footer */}
-        <div className="border-t border-white/10 px-6 py-5 space-y-2.5">
+        <div className="border-t dash-border px-6 py-5 space-y-2.5">
           <div className="flex justify-between text-sm">
-            <span className="text-neutral-500 font-semibold">Subtotal</span>
-            <span className="text-neutral-300 font-bold tabular-nums">{fmt(subtotal)}</span>
+            <span className="dash-label font-semibold">Subtotal</span>
+            <span className="dash-value font-bold tabular-nums">{fmt(subtotal)}</span>
           </div>
           {subtotal !== sale.totalCentavos && (
             <div className="flex justify-between text-sm">
-              <span className="text-neutral-500 font-semibold">Ajuste</span>
-              <span className="text-amber-400 font-bold tabular-nums">
+              <span className="dash-label font-semibold">Ajuste</span>
+              <span className="text-amber-600 font-bold tabular-nums">
                 {fmt(sale.totalCentavos - subtotal)}
               </span>
             </div>
           )}
-          <div className="flex justify-between items-center pt-2 border-t border-white/5">
-            <span className="text-neutral-400 font-bold">Total</span>
-            <span className="text-2xl font-black text-emerald-400 tabular-nums tracking-tighter">
+          <div className="flex justify-between items-center pt-2 border-t dash-border">
+            <span className="dash-label font-bold">Total</span>
+            <span className="text-2xl font-black text-[var(--brasa)] tabular-nums tracking-tighter">
               {fmt(sale.totalCentavos)}
             </span>
           </div>

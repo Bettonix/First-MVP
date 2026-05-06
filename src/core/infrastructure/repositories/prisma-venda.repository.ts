@@ -9,7 +9,6 @@ import {
 /** Deriva o campo de resumo `metodoPagto` a partir do array de splits */
 function resolveMetodoResumo(pagamentos: SplitPagamento[]): string {
   if (pagamentos.length === 1) return pagamentos[0].metodo;
-  // Múltiplos métodos → MISTO
   const metodos = new Set(pagamentos.map((p) => p.metodo));
   if (metodos.size === 1) return [...metodos][0];
   return 'MISTO';
@@ -44,6 +43,8 @@ export class PrismaVendaRepository implements IVendaRepository {
 
     let hasCriticalStock = false;
     const criticalItems: string[] = [];
+    // Produtos que ficaram com estoque negativo após esta venda
+    const negativeStockIds: bigint[] = [];
 
     const venda = await prisma.$transaction(async (tx) => {
       // 1. Valida turno aberto
@@ -61,7 +62,7 @@ export class PrismaVendaRepository implements IVendaRepository {
           turnoId: turnoAberto.id,
           totalCentavos,
           metodoPagto: resolveMetodoResumo(pagamentos),
-          itens: cart as any,
+          itens: cart as unknown as object,
           pagamentos: {
             create: pagamentos.map((p) => ({
               metodo: p.metodo,
@@ -77,6 +78,7 @@ export class PrismaVendaRepository implements IVendaRepository {
           where: { id: item.produtoId },
           data: { estoqueAtual: { decrement: item.quantidade } },
           select: {
+            id: true,
             nome: true,
             estoqueAtual: true,
             estoqueInicial: true,
@@ -88,11 +90,42 @@ export class PrismaVendaRepository implements IVendaRepository {
           throw new Error('Tenant isolation violation detected.');
         }
 
+        // Alerta de estoque crítico (≤ 10% do inicial)
         const limit = estoque.estoqueInicial * 0.1;
         if (estoque.estoqueAtual <= limit) {
           hasCriticalStock = true;
           criticalItems.push(estoque.nome);
         }
+
+        // ── Estoque negativo: marca para reconciliação ──────────
+        // Nunca bloqueia a venda — apenas registra a inconsistência.
+        // O gerente resolve manualmente via ajuste de estoque.
+        if (estoque.estoqueAtual < 0) {
+          negativeStockIds.push(estoque.id);
+          // Registra movimentação de auditoria com tipo AJUSTE
+          await tx.movimentacaoEstoque.create({
+            data: {
+              tenantId,
+              produtoId: estoque.id,
+              tipo: 'AJUSTE',
+              quantidade: 0, // sem alteração adicional — apenas log
+              quantidadeAnterior: estoque.estoqueAtual + item.quantidade,
+              motivo: `Estoque negativo após venda offline #${novaVenda.id}. Requer reconciliação.`,
+            },
+          });
+        }
+      }
+
+      // 4. Marca produtos com estoque negativo para reconciliação
+      //    Feito fora do loop para um único UPDATE por produto
+      if (negativeStockIds.length > 0) {
+        await tx.produto.updateMany({
+          where: { id: { in: negativeStockIds }, tenantId },
+          data: {
+            needsReconciliation: true,
+            lastInconsistency: new Date(),
+          },
+        });
       }
 
       return novaVenda;

@@ -24,7 +24,8 @@ export async function signInWithGoogle() {
 export async function signInWithPassword(email: string, password: string) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: error.message };
+  // Never reveal whether the email exists — always return the same generic message
+  if (error) return { error: "Credenciais inválidas. Verifique e-mail e senha." };
   return { success: true };
 }
 
