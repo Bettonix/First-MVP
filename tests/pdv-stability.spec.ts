@@ -37,7 +37,10 @@ async function waitForPDV(page: Page) {
 async function finalizarVenda(page: Page, valorCentavos: number) {
   const splitInput = page.getByTestId("split-valor-input");
   await expect(splitInput).toBeVisible({ timeout: 5_000 });
-  await splitInput.fill(String(valorCentavos / 100));
+  // pressSequentially garante que os eventos React onChange disparam corretamente
+  await splitInput.click();
+  await splitInput.clear();
+  await splitInput.pressSequentially(String(valorCentavos / 100));
   await page.waitForTimeout(200);
   await page.getByTestId("btn-metodo-dinheiro").click();
   await page.waitForTimeout(300);

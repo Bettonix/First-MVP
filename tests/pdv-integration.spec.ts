@@ -43,7 +43,9 @@ test.describe("PDV Flow", () => {
 
     const splitInput = page.getByTestId("split-valor-input");
     await expect(splitInput).toBeVisible({ timeout: 5_000 });
-    await splitInput.fill("10");
+    await splitInput.click();
+    await splitInput.clear();
+    await splitInput.pressSequentially("10");
     await page.waitForTimeout(200);
 
     await page.getByTestId("btn-metodo-dinheiro").click();
@@ -100,7 +102,9 @@ test.describe("PDV Flow", () => {
     const splitInput = page.getByTestId("split-valor-input");
     await expect(splitInput).toBeVisible({ timeout: 3_000 });
     // Paga valor exato (R$ 8,00) para não gerar troco — assim o toast aparece diretamente
-    await splitInput.fill("8");
+    await splitInput.click();
+    await splitInput.clear();
+    await splitInput.pressSequentially("8");
     await page.waitForTimeout(200);
 
     await page.getByTestId("btn-metodo-dinheiro").click();
