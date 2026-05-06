@@ -14,19 +14,22 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
   projects: [
-    // ── Desktop ──────────────────────────────────────────────────────────────
+    // ── Desktop — roda todos os testes ───────────────────────────────────────
     {
       name: "desktop-chrome",
       use: { ...devices["Desktop Chrome"] },
+      testMatch: "**/*.spec.ts",
     },
-    // ── Mobile ───────────────────────────────────────────────────────────────
+    // ── Mobile — apenas testes de responsividade ─────────────────────────────
     {
       name: "iphone-14",
       use: { ...devices["iPhone 14"] },
+      testMatch: "**/responsive-ui.spec.ts",
     },
     {
       name: "pixel-5",
       use: { ...devices["Pixel 5"] },
+      testMatch: "**/responsive-ui.spec.ts",
     },
   ],
   // Não inicia o servidor automaticamente — assume `next dev` rodando

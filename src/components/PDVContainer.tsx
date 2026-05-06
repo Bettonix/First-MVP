@@ -1491,16 +1491,16 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           <div className="grid grid-cols-3 gap-2 dash-muted border dash-border rounded-2xl p-3">
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-[8px] font-black uppercase tracking-widest dash-label">Total</span>
-              <span data-testid="cart-total" className="text-base font-black tabular-nums tracking-tighter dash-value">{fmt(total)}</span>
+              <span data-testid="cart-total" className="text-base font-black tabular-nums tracking-tighter dash-value">{isMounted ? fmt(total) : 'R$ 0,00'}</span>
             </div>
             <div className="flex flex-col items-center gap-0.5 border-x dash-border">
               <span className="text-[8px] font-black uppercase tracking-widest dash-label">Pago</span>
-              <span className={`text-base font-black tabular-nums tracking-tighter ${splitPago > 0 ? 'dash-highlight-text' : 'dash-subtitle'}`}>{fmt(splitPago)}</span>
+              <span className={`text-base font-black tabular-nums tracking-tighter ${isMounted && splitPago > 0 ? 'dash-highlight-text' : 'dash-subtitle'}`}>{isMounted ? fmt(splitPago) : 'R$ 0,00'}</span>
             </div>
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-[8px] font-black uppercase tracking-widest dash-label">Restante</span>
-              <span className={`text-base font-black tabular-nums tracking-tighter ${splitRestante === 0 ? 'dash-highlight-text' : 'text-rose-400'}`}>
-                {splitRestante === 0 && splitTroco > 0 ? `+${fmt(splitTroco)}` : fmt(splitRestante)}
+              <span className={`text-base font-black tabular-nums tracking-tighter ${isMounted && splitRestante === 0 ? 'dash-highlight-text' : 'text-rose-400'}`}>
+                {isMounted ? (splitRestante === 0 && splitTroco > 0 ? `+${fmt(splitTroco)}` : fmt(splitRestante)) : 'R$ 0,00'}
               </span>
             </div>
           </div>
