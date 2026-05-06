@@ -6,6 +6,17 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  // ── Playwright test bypass ──────────────────────────────────────────────────
+  // Permite que testes E2E acessem rotas protegidas sem autenticação real.
+  // Ativado apenas quando PLAYWRIGHT_TEST_BYPASS=1 está definido no ambiente.
+  // NUNCA habilitar em produção.
+  if (
+    process.env.PLAYWRIGHT_TEST_BYPASS === "1" &&
+    process.env.NODE_ENV !== "production"
+  ) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -34,8 +45,8 @@ export async function updateSession(request: NextRequest) {
   // Rotas que não precisam de autenticação
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/auth')
 
-  // Proteger rota raiz (PDV) e /dashboard
-  const isProtectedRoute = request.nextUrl.pathname === '/' || request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/onboarding')
+  // Proteger /app (PDV) e /dashboard
+  const isProtectedRoute = request.nextUrl.pathname.startsWith('/app') || request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/onboarding')
 
   if (!user && isProtectedRoute) {
     // Redireciona usuários não autenticados para a página de login
@@ -47,7 +58,7 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     // Redireciona usuários autenticados da página de login para o PDV
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/app'
     return NextResponse.redirect(url)
   }
 

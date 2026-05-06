@@ -10,12 +10,26 @@ export interface SessionContext {
   role: UserRole;
 }
 
+// ── Playwright test bypass ────────────────────────────────────────────────────
+// Retorna um contexto de sessão mock quando PLAYWRIGHT_TEST_BYPASS=1.
+// Requer PLAYWRIGHT_TEST_TENANT_ID para identificar o tenant de teste.
+// NUNCA habilitar em produção.
+const TEST_BYPASS =
+  process.env.PLAYWRIGHT_TEST_BYPASS === "1" &&
+  process.env.NODE_ENV !== "production";
+
+const TEST_TENANT_ID = process.env.PLAYWRIGHT_TEST_TENANT_ID ?? "test-tenant-id";
+
 /**
  * Resolve tenantId e role do usuário logado.
  * - GERENTE: tem Vendedor com authId === user.id
  * - OPERADOR: tem Profile com vendedorId preenchido
  */
 export async function getSessionContext(): Promise<SessionContext> {
+  if (TEST_BYPASS) {
+    return { authId: "test-user-id", tenantId: TEST_TENANT_ID, role: "GERENTE" };
+  }
+
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 

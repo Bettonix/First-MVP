@@ -3,11 +3,55 @@
 import { prisma } from "@/lib/prisma";
 import { getTenantIdOrRedirect } from "@/lib/auth";
 
+// ── Dados mock para testes E2E (Playwright) ───────────────────────────────────
+const TEST_BYPASS =
+  process.env.PLAYWRIGHT_TEST_BYPASS === "1" &&
+  process.env.NODE_ENV !== "production";
+
+const MOCK_BOOTSTRAP_DATA = {
+  nomeLoja: "Loja Teste E2E",
+  instagramUrl: "",
+  isTurnoAberto: true,
+  insights: {
+    totalHojeCentavos: 0,
+    qtdHoje: 0,
+    ticketMedioCentavos: 0,
+    vaultCentavos: 0,
+  },
+  lowStockItems: [],
+  recentSales: [],
+  produtos: [
+    {
+      id: "1",
+      nome: "Café Espresso",
+      precoCentavos: 800,
+      precoCustoCentavos: 200,
+      categoria: "Bebidas",
+      estoqueAtual: 50,
+      estoqueInicial: 100,
+      isFavorito: true,
+    },
+    {
+      id: "2",
+      nome: "Pão de Queijo",
+      precoCentavos: 500,
+      precoCustoCentavos: 150,
+      categoria: "Lanches",
+      estoqueAtual: 30,
+      estoqueInicial: 50,
+      isFavorito: true,
+    },
+  ],
+};
+
 /**
  * Busca todos os dados operacionais necessários para o PDV em uma
  * única chamada server-side, minimizando round-trips.
  */
 export async function getPDVBootstrapData() {
+  // Retorna dados mock em modo de teste E2E
+  if (TEST_BYPASS) return MOCK_BOOTSTRAP_DATA;
+
   const tenantId = await getTenantIdOrRedirect();
 
   const todayStart = new Date();

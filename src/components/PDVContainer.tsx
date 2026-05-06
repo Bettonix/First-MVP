@@ -26,6 +26,9 @@ import { useState, useEffect, useRef, useOptimistic, useTransition, memo, useCal
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
 import { useSensoryFeedback } from "@/hooks/useSensoryFeedback";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { enqueueVenda } from "@/lib/offlineQueue";
+import { ConnectivityToast } from "@/components/ConnectivityToast";
 import { ReceiptModal, type ReceiptData } from "@/components/Receipt";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -64,13 +67,123 @@ function Toast({ message, type, onClose }: { message: string, type: 'success' | 
       initial={{ opacity: 0, y: -20, x: '-50%' }}
       animate={{ opacity: 1, y: 0, x: '-50%' }}
       exit={{ opacity: 0, y: -20, x: '-50%' }}
-      className={`fixed top-6 left-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-xl ${
-        type === 'success' ? 'dash-icon-accent border-[var(--brasa-border)] dash-highlight-text' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+      className={`fixed top-6 left-1/2 z-[200] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border ${
+        type === 'success' ? 'dash-icon-accent border-[var(--brasa-border)] dash-highlight-text' : 'bg-[var(--danger-bg)] border-[var(--danger-border)] text-[var(--danger)]'
       }`}
     >
       {type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
       <span className="text-sm font-bold tracking-tight">{message}</span>
       <button onClick={onClose} aria-label="Fechar notificação" className="ml-2 hover:opacity-70 transition-opacity"><X size={14} /></button>
+    </motion.div>
+  );
+}
+
+// ─── Change Overlay ───────────────────────────────────────────
+function ChangeOverlay({ troco, onDismiss }: { troco: number; onDismiss: () => void }) {
+  const [countdown, setCountdown] = useState(4);
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  const R = 20;
+  const circ = 2 * Math.PI * R;
+  const progress = countdown / 4;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[150] flex flex-col items-center justify-center select-none"
+      style={{ backgroundColor: "#1A1208" }}
+      onClick={onDismiss}
+    >
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div style={{
+          position: "absolute", top: "30%", left: "50%", transform: "translate(-50%,-50%)",
+          width: "600px", height: "400px",
+          background: "radial-gradient(ellipse, rgba(211,84,0,0.18) 0%, transparent 68%)",
+        }} />
+      </div>
+
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0, y: 28 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.85, opacity: 0, y: 28 }}
+        transition={{ type: "spring", stiffness: 300, damping: 22 }}
+        className="flex flex-col items-center gap-5 relative z-10"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Eyebrow */}
+        <p className="font-black uppercase tracking-[0.3em] text-xs"
+          style={{ color: "rgba(211,84,0,0.7)" }}>
+          PAGAMENTO CONCLUÍDO
+        </p>
+
+        {/* Troco label */}
+        <p className="font-black uppercase tracking-[0.2em] text-[11px]"
+          style={{ color: "rgba(255,255,255,0.3)" }}>
+          TROCO
+        </p>
+
+        {/* Value — data-first, maximum size */}
+        <p
+          data-testid="change-overlay-value"
+          className="font-black tabular-nums leading-none"
+          style={{
+            fontSize: "clamp(64px, 16vw, 140px)",
+            color: "#D35400",
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {fmtBRL(troco)}
+        </p>
+
+        {/* Nova Venda button + countdown ring */}
+        <div className="flex items-center gap-4 mt-4">
+          <button
+            onClick={onDismiss}
+            className="flex items-center gap-2.5 px-7 py-3.5 rounded-2xl font-black text-sm uppercase tracking-widest text-white transition-all active:scale-95"
+            style={{
+              background: "linear-gradient(135deg, #D35400 0%, #B84A00 100%)",
+              boxShadow: "0 8px 24px rgba(211,84,0,0.4)",
+            }}
+          >
+            Nova Venda
+          </button>
+
+          {/* SVG countdown ring */}
+          <div className="relative w-12 h-12 flex items-center justify-center">
+            <svg width="48" height="48" className="absolute inset-0 -rotate-90">
+              <circle cx="24" cy="24" r={R} fill="none"
+                stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+              <circle cx="24" cy="24" r={R} fill="none"
+                stroke="#D35400" strokeWidth="3"
+                strokeDasharray={circ}
+                strokeDashoffset={circ * (1 - progress)}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 0.9s linear" }}
+              />
+            </svg>
+            <span className="font-black text-sm tabular-nums relative z-10"
+              style={{ color: "rgba(255,255,255,0.5)" }}>
+              {countdown}
+            </span>
+          </div>
+        </div>
+
+        <p className="text-xs font-semibold mt-1"
+          style={{ color: "rgba(255,255,255,0.2)" }}>
+          Toque em qualquer lugar para continuar
+        </p>
+      </motion.div>
     </motion.div>
   );
 }
@@ -325,7 +438,7 @@ function SwipeCartItem({ item, fmt, onIncrement, onDecrement, onRemove, onToggle
             className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
               item.prepared
                 ? 'bg-[var(--brasa)] border-[var(--brasa)] text-white shadow-[0_0_12px_rgba(211,84,0,0.4)]'
-                : 'dash-border text-transparent hover:border-[var(--brasa-border)]'
+                : 'dash-border text-[var(--border)] hover:border-[var(--brasa-border)]'
             }`}
           >
             <CheckCircle2 size={15} />
@@ -349,6 +462,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const { items, addItem, removeItem, incrementItem, decrementItem, togglePrepared, clearCart, totalCentavos, subtotalCentavos, descontoCentavos, setDesconto, setItems } = useCartStore();
   const { comandas, saveComanda, updateComandaItems, activeComandaId, setActiveComanda, closeComanda } = useTabStore();
   const { onSaleSuccess } = useSensoryFeedback();
+  const { isOnline, pendingCount, isSyncing, justReconnected } = useOfflineSync();
   
   const { data: produtos = initialProdutos, isLoading } = useQuery({
     queryKey: ['produtos-pdv'],
@@ -557,6 +671,27 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         precoCentavos: item.precoCentavos,
       }));
 
+      // ── Offline fallback ──────────────────────────────────────
+      // Server Actions requerem rede. Se offline, persiste na fila
+      // local e simula sucesso para não bloquear o operador.
+      if (!navigator.onLine) {
+        await enqueueVenda({
+          payload: {
+            cart: items.map(item => ({
+              produtoId: item.produtoId,
+              nome: item.nome,
+              quantidade: item.quantidade,
+              precoCentavos: item.precoCentavos,
+            })),
+            pagamentos: splitPagamentos,
+            totalCentavos: total,
+            troco: trocoFinal,
+          },
+        });
+        // Retorna objeto compatível com o fluxo de onSuccess
+        return { __offline: true as const };
+      }
+
       // Resolve comanda to close (create new if needed)
       let comandaParaFechar: string | null = null;
       if (vinculadoAMesa && selectedMesaId) {
@@ -581,7 +716,29 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
       return res;
     },
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      // ── Offline path: venda enfileirada localmente ────────────
+      if (result && '__offline' in result && result.__offline) {
+        const snapshotTroco = trocoFinal;
+        const doReset = () => {
+          clearCart();
+          setCartOpen(false);
+          resetForm();
+          resetSplitState();
+          setChangeOverlay(null);
+          setTimeout(() => searchInputRef.current?.focus(), 80);
+        };
+        if (snapshotTroco > 0) {
+          setChangeOverlay({ troco: snapshotTroco });
+          if (changeOverlayTimerRef.current) clearTimeout(changeOverlayTimerRef.current);
+          changeOverlayTimerRef.current = setTimeout(doReset, 4000);
+        } else {
+          doReset();
+          showToast("Venda salva localmente. Sincronizando quando houver conexão.", 'success');
+        }
+        return;
+      }
+
       const metodo = pagamentoType ?? undefined;
       onSaleSuccess(metodo);
 
@@ -623,6 +780,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         resetForm();
         resetSplitState();
         setChangeOverlay(null);
+        setTimeout(() => searchInputRef.current?.focus(), 80);
       };
 
       // Dispara impressão de forma assíncrona (não bloqueia o fluxo)
@@ -722,7 +880,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   );
 
   return (
-    <div className="h-full w-full bg-[var(--parchment)] overflow-hidden text-neutral-100 font-sans md:grid md:grid-cols-[1fr_400px]">
+    <div className="h-full w-full bg-[var(--parchment)] overflow-hidden font-sans md:grid md:grid-cols-[1fr_clamp(340px,33vw,420px)]">
 
       {/* ─── MAIN CONTENT (COLUNA 1) ─── */}
       <div className="h-full flex flex-col overflow-hidden relative z-30">
@@ -732,9 +890,28 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           <div className="flex flex-col gap-0.5 shrink-0">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black tracking-tighter">{nomeLoja}</h1>
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-emerald-500 dash-icon-accent px-2 py-0.5 rounded-full">
-                <CheckCircle2 size={12} /> Nuvem
-              </span>
+              {/* Network status badge — dinâmico */}
+              {isOnline ? (
+                pendingCount > 0 ? (
+                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: "var(--warning-bg)", color: "var(--warning)" }}>
+                    {isSyncing
+                      ? <><Loader2 size={10} className="animate-spin" /> Sincronizando…</>
+                      : <><RefreshCw size={10} /> {pendingCount} pendente{pendingCount > 1 ? "s" : ""}</>
+                    }
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest dash-icon-accent px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: "var(--success-bg)", color: "var(--success)" }}>
+                    <CheckCircle2 size={10} /> Online
+                  </span>
+                )
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger)" }}>
+                  <AlertTriangle size={10} /> Offline
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs dash-label">
               <span className="font-bold dash-label">Operador: Admin</span>
@@ -755,7 +932,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             </div>
           </div>
           <div className="flex-1 min-w-[200px] dash-card border dash-border rounded-2xl p-4 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${lowStockItems.length > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-500/10 text-blue-400'}`}><Package size={24}/></div>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${lowStockItems.length > 0 ? 'bg-[var(--warning-bg)] text-[var(--warning)]' : 'dash-muted dash-label'}`}><Package size={24}/></div>
             <div>
               <p className="text-xs dash-label font-bold uppercase tracking-wider mb-0.5">Estoque</p>
               <p className="text-lg font-black">{lowStockItems.length > 0 ? `${lowStockItems.length} Itens Críticos` : 'Normal'}</p>
@@ -791,6 +968,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                       autoFocus
                       type="search"
                       inputMode="search"
+                      data-testid="pdv-search"
                       placeholder="Bipar código ou digitar produto..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -798,8 +976,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setActiveTab("todos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all ${activeTab === "todos" ? 'border-emerald-500/50 dash-icon-accent dash-highlight-text' : 'dash-border dash-muted dash-label hover:dash-value'}`}>Todos</button>
-                    <button onClick={() => setActiveTab("favoritos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${activeTab === "favoritos" ? 'border-amber-500/50 bg-amber-500/10 text-amber-400' : 'dash-border dash-muted dash-label hover:dash-value'}`}><Star size={14}/> Favoritos</button>
+                    <button onClick={() => setActiveTab("todos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all ${activeTab === "todos" ? 'border-[var(--brasa-border)] dash-icon-accent dash-highlight-text' : 'dash-border dash-muted dash-label hover:dash-value'}`}>Todos</button>
+                    <button onClick={() => setActiveTab("favoritos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${activeTab === "favoritos" ? 'border-[var(--mel-border)] bg-[var(--mel-light)] text-[var(--mel)]' : 'dash-border dash-muted dash-label hover:dash-value'}`}><Star size={14}/> Favoritos</button>
                   </div>
                 </div>
 
@@ -831,7 +1009,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             {activeView === "COMANDAS" && (
               <motion.div key="comandas" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                 {comandas.length === 0 ? (
-                  <div className="h-80 rounded-3xl border-2 border-dashed dash-border flex flex-col items-center justify-center text-neutral-600 dash-muted"><ClipboardList size={48} className="mb-4 opacity-20"/><p className="font-bold">Nenhuma comanda aberta</p></div>
+                  <div className="h-80 rounded-3xl border-2 border-dashed dash-border flex flex-col items-center justify-center dash-label dash-muted"><ClipboardList size={48} className="mb-4 opacity-20"/><p className="font-bold">Nenhuma comanda aberta</p></div>
                 ) : (
                   <LayoutGroup>
                     <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20 md:pb-0">
@@ -839,9 +1017,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                         <motion.button layout key={c.id} onClick={() => selectComanda(c)}
                           whileTap={{ scale: 0.97 }}
                           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                          className="dash-card border dash-border p-6 rounded-3xl flex flex-col gap-4 text-left hover:border-emerald-500/50 transition-colors relative overflow-hidden group shadow-2xl">
+                          className="dash-card border dash-border p-6 rounded-3xl flex flex-col gap-4 text-left hover:border-[var(--brasa-border)] transition-colors relative overflow-hidden group shadow-2xl">
                           <div className="flex justify-between items-start">
-                            <div className="flex flex-col"><span className="text-xs dash-label font-black uppercase tracking-widest mb-1">Cliente / Mesa</span><span className="text-xl font-black text-neutral-100">{c.clienteNome}</span></div>
+                            <div className="flex flex-col"><span className="text-xs dash-label font-black uppercase tracking-widest mb-1">Cliente / Mesa</span><span className="text-xl font-black dash-value">{c.clienteNome}</span></div>
                             <OpenTime createdAt={c.createdAt} />
                           </div>
                           <div className="flex items-end justify-between mt-6">
@@ -907,7 +1085,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(sale.totalCentavos)}</p>
-                          <p className="text-[10px] font-bold dash-label/60 uppercase tracking-widest mt-1 group-hover:text-emerald-500/60 transition-colors">Ver detalhes →</p>
+                          <p className="text-[10px] font-bold dash-label opacity-60 uppercase tracking-widest mt-1 group-hover:dash-highlight-text transition-colors">Ver detalhes →</p>
                         </div>
                       </motion.button>
                     ))
@@ -927,7 +1105,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                    {(produtos as ProdutoPDV[]).map((p) => (
                      <motion.div layout key={p.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[var(--muted)] border dash-border hover:border-[var(--border-md)] transition-all rounded-2xl p-5 flex flex-col gap-3 relative group">
-                        {p.estoqueAtual < 5 && <div className="absolute top-4 right-4 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></div>}
+                        {p.estoqueAtual < 5 && <div className="absolute top-4 right-4 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--warning)] opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--warning)]"></span></div>}
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 dash-muted rounded-lg flex items-center justify-center"><Package size={16} className="dash-label"/></div>
                           <div className="flex-1 min-w-0">
@@ -941,7 +1119,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                         </div>
                         <div className="flex justify-between items-center text-sm">
                           <span className="dash-label font-bold">Venda / Custo:</span>
-                          <span className="dash-highlight-text font-black tabular-nums">{fmt(p.precoCentavos)} <span className="text-neutral-600">/ {fmt(p.precoCustoCentavos)}</span></span>
+                          <span className="dash-highlight-text font-black tabular-nums">{fmt(p.precoCentavos)} <span className="dash-label">/ {fmt(p.precoCustoCentavos)}</span></span>
                         </div>
                         {userRole === "GERENTE" && (
                           <div className="flex gap-2 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -973,13 +1151,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                    <div className="dash-card border border-[var(--brasa-border)] rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 dash-icon-accent rounded-full blur-2xl group-hover:bg-[var(--brasa-hover)]/20 transition-all"/>
-                      <h3 className="text-emerald-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><DollarSign size={14}/> Vendas Hoje</h3>
+                      <h3 className="dash-highlight-text font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><DollarSign size={14}/> Vendas Hoje</h3>
                       <p className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(insights?.totalHojeCentavos || 0)}</p>
                    </div>
                    <div className="dash-card border border-blue-500/20 rounded-3xl p-6 relative overflow-hidden group">
-                      <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"/>
-                      <h3 className="text-blue-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><Hash size={14}/> Total de Pedidos</h3>
-                      <p className="text-4xl font-black text-blue-400 tabular-nums tracking-tighter">{insights?.qtdHoje || 0}</p>
+                      <div className="absolute -right-6 -top-6 w-24 h-24 dash-muted rounded-full blur-2xl group-hover:bg-[var(--muted)] transition-all"/>
+                      <h3 className="dash-label font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><Hash size={14}/> Total de Pedidos</h3>
+                      <p className="text-4xl font-black dash-value tabular-nums tracking-tighter">{insights?.qtdHoje || 0}</p>
                    </div>
                    <div className="dash-card border border-purple-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"/>
@@ -1028,8 +1206,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             </h3>
             {activeComandaId && isMounted && (
               <div className="mt-2 flex items-center gap-1.5 bg-[var(--brasa)]/15 border border-[var(--brasa-border)] px-3 py-1.5 rounded-lg w-fit">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <p className="text-[10px] text-emerald-300 font-black uppercase tracking-widest">
+                <div className="w-1.5 h-1.5 rounded-full bg-[var(--brasa)] animate-pulse shrink-0" />
+                <p className="text-[10px] dash-highlight-text font-black uppercase tracking-widest">
                   {comandas.find(c => c.id === activeComandaId)?.clienteNome ?? 'EM ATENDIMENTO'}
                 </p>
               </div>
@@ -1056,7 +1234,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 >
                   {vinculadoAMesa
                     ? <ToggleRight size={22} className="dash-highlight-text" />
-                    : <ToggleLeft size={22} className="text-neutral-600" />}
+                    : <ToggleLeft size={22} className="dash-label" />}
                 </button>
               </div>
 
@@ -1081,19 +1259,19 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                     : (comandaSelecionada?.name ?? `Comanda #${selectedComandaId.slice(-4)}`);
                   return (
                     <div className="mt-3 flex items-center gap-3 dash-icon-accent border border-[var(--brasa-border)] px-4 py-3 rounded-2xl">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-[var(--brasa)] animate-pulse shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[9px] text-emerald-500/80 font-black uppercase tracking-widest">
+                        <p className="text-[9px] dash-highlight-text opacity-80 font-black uppercase tracking-widest">
                           {isNova ? "Nova Comanda" : "Vinculado"}
                         </p>
-                        <p className="text-sm text-emerald-300 font-bold truncate">
+                        <p className="text-sm dash-highlight-text font-bold truncate">
                           {mesaAtual.nome} · {label}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => { setSelectedComandaId(""); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
-                        className="text-[10px] font-black uppercase tracking-widest dash-highlight-text hover:text-emerald-300 px-3 py-1.5 rounded-lg dash-icon-accent hover:bg-[var(--brasa-hover)]/20 border border-[var(--brasa-border)] transition-all"
+                        className="text-[10px] font-black uppercase tracking-widest dash-highlight-text hover:dash-highlight-text px-3 py-1.5 rounded-lg dash-icon-accent hover:bg-[var(--brasa-hover)]/20 border border-[var(--brasa-border)] transition-all"
                       >
                         Trocar
                       </button>
@@ -1177,7 +1355,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                           <button
                             type="button"
                             onClick={() => { setSelectedComandaId("__nova__"); setNovaComandaNome(""); setNovaComandaConfirmed(false); }}
-                            className="w-full flex items-center justify-center gap-2 dash-icon-accent hover:bg-[var(--brasa-hover)]/15 border border-dashed border-emerald-500/40 hover:border-emerald-500/60 text-emerald-300 font-black text-xs uppercase tracking-widest rounded-xl px-4 py-3 transition-all"
+                            className="w-full flex items-center justify-center gap-2 dash-icon-accent hover:bg-[var(--brasa-hover)]/15 border border-dashed border-[var(--brasa-border)] hover:border-[var(--brasa)] dash-highlight-text font-black text-xs uppercase tracking-widest rounded-xl px-4 py-3 transition-all"
                           >
                             <Plus size={14} /> Nova Comanda
                           </button>
@@ -1204,7 +1382,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                     {mesasPDV.length === 0 ? (
                       <div className="dash-muted border border-dashed dash-border rounded-xl py-6 text-center">
                         <p className="text-xs dash-label font-semibold">Nenhuma mesa configurada.</p>
-                        <p className="text-[10px] text-neutral-600 mt-1">Cadastre em Configurações → Mesas.</p>
+                        <p className="text-[10px] dash-subtitle mt-1">Cadastre em Configurações → Mesas.</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
@@ -1222,20 +1400,20 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                                   : "dash-muted dash-border hover:border-[var(--brasa-border)] hover:dash-muted"}`}
                             >
                               <div className="flex items-center gap-1.5 w-full">
-                                <div className={`w-1.5 h-1.5 rounded-full ${ocupada ? "bg-emerald-400" : "bg-neutral-600"}`} />
-                                <span className={`text-sm font-black truncate ${ocupada ? "text-emerald-300" : "dash-value"}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${ocupada ? "bg-[var(--brasa)]" : "bg-[var(--border-strong)]"}`} />
+                                <span className={`text-sm font-black truncate ${ocupada ? "dash-highlight-text" : "dash-value"}`}>
                                   {m.nome}
                                 </span>
                               </div>
                               {ocupada ? (
                                 <div className="flex items-center justify-between w-full">
-                                  <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-wider flex items-center gap-1">
+                                  <span className="text-[9px] font-bold dash-highlight-text opacity-80 uppercase tracking-wider flex items-center gap-1">
                                     <Users size={9} /> {m.comandas.length}
                                   </span>
                                   <span className="text-[10px] font-black tabular-nums dash-highlight-text">{fmtBRL(total)}</span>
                                 </div>
                               ) : (
-                                <span className="text-[9px] font-bold text-neutral-600 uppercase tracking-wider">Livre</span>
+                                <span className="text-[9px] font-bold dash-label uppercase tracking-wider">Livre</span>
                               )}
                             </button>
                           );
@@ -1278,7 +1456,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           </div>
         </div>
 
-        <footer className="p-6 pb-10 md:pb-6 bg-[var(--porcelana)]/90 backdrop-blur-xl border-t dash-border space-y-4 relative z-10 shrink-0">
+        <footer className="p-6 pb-10 md:pb-6 bg-[var(--porcelana)] border-t dash-border space-y-4 relative z-10 shrink-0">
           <div className="flex flex-col gap-1">
             
             <div className="flex items-center justify-between dash-muted p-4 rounded-3xl border dash-border shadow-inner">
@@ -1299,7 +1477,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 </button>
               </div>
               <div className="flex flex-col items-end">
-                {descontoCentavos > 0 && <span className="text-[10px] text-neutral-600 line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
+                {descontoCentavos > 0 && <span className="text-[10px] dash-subtitle line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
                 <span className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
                   {isMounted ? fmt(total) : 'R$ 0,00'}
                 </span>
@@ -1311,7 +1489,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           <div className="grid grid-cols-3 gap-2 dash-muted border dash-border rounded-2xl p-3">
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-[8px] font-black uppercase tracking-widest dash-label">Total</span>
-              <span className="text-base font-black tabular-nums tracking-tighter dash-value">{fmt(total)}</span>
+              <span data-testid="cart-total" className="text-base font-black tabular-nums tracking-tighter dash-value">{fmt(total)}</span>
             </div>
             <div className="flex flex-col items-center gap-0.5 border-x dash-border">
               <span className="text-[8px] font-black uppercase tracking-widest dash-label">Pago</span>
@@ -1332,6 +1510,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
               type="number"
               step="0.01"
               inputMode="decimal"
+              data-testid="split-valor-input"
               placeholder={splitRestante > 0 ? (splitRestante / 100).toFixed(2) : "0,00"}
               value={splitInputValor}
               onChange={e => setSplitInputValor(e.target.value)}
@@ -1343,6 +1522,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 <button
                   type="button"
                   key={m.value}
+                  data-testid={`btn-metodo-${m.value.toLowerCase()}`}
                   onClick={() => addSplitPagamento(m.value)}
                   className="flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-150 dash-border dash-muted dash-label hover:border-[var(--brasa-border)] hover:dash-value active:scale-95"
                 >
@@ -1415,6 +1595,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
           <motion.button
             type="submit"
+            data-testid="btn-finalizar-venda"
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             disabled={items.length === 0 || !isSplitValid || mutation.isPending || !isTurnoAberto}
@@ -1475,51 +1656,29 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         )}
       </AnimatePresence>
 
+      {/* ─── CONNECTIVITY TOAST ─── */}
+      <ConnectivityToast
+        isOnline={isOnline}
+        isSyncing={isSyncing}
+        pendingCount={pendingCount}
+        justReconnected={justReconnected}
+      />
+
       {/* ─── CHANGE OVERLAY ─── */}
       <AnimatePresence>
         {changeOverlay && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[150] flex flex-col items-center justify-center cursor-pointer select-none"
-            style={{ backgroundColor: "var(--ink)", backdropFilter: "blur(4px)" }}
-            onClick={() => {
+          <ChangeOverlay
+            troco={changeOverlay.troco}
+            onDismiss={() => {
               if (changeOverlayTimerRef.current) clearTimeout(changeOverlayTimerRef.current);
               clearCart();
               setCartOpen(false);
               resetForm();
+              resetSplitState();
               setChangeOverlay(null);
+              setTimeout(() => searchInputRef.current?.focus(), 80);
             }}
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0, y: 24 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 24 }}
-              transition={{ type: "spring", stiffness: 320, damping: 24 }}
-              className="flex flex-col items-center gap-4"
-            >
-              <p
-                className="font-black uppercase tracking-widest"
-                style={{ fontSize: "clamp(14px, 3vw, 18px)", color: "var(--brasa)", letterSpacing: "0.25em", opacity: 0.8 }}
-              >
-                TROCO
-              </p>
-              <p
-                className="font-black tabular-nums leading-none"
-                style={{ fontSize: "clamp(72px, 18vw, 160px)", color: "var(--brasa)", letterSpacing: "-0.04em", lineHeight: 1 }}
-              >
-                {fmtBRL(changeOverlay.troco)}
-              </p>
-              <p
-                className="font-bold"
-                style={{ fontSize: "clamp(12px, 2vw, 14px)", color: "rgba(255,255,255,0.35)", marginTop: "8px" }}
-              >
-                Toque para continuar
-              </p>
-            </motion.div>
-          </motion.div>
+          />
         )}
       </AnimatePresence>
       <AnimatePresence>
