@@ -11,13 +11,22 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    // Ignora erros de certificado em dev
     ignoreHTTPSErrors: true,
   },
   projects: [
+    // ── Desktop ──────────────────────────────────────────────────────────────
     {
-      name: "chromium",
+      name: "desktop-chrome",
       use: { ...devices["Desktop Chrome"] },
+    },
+    // ── Mobile ───────────────────────────────────────────────────────────────
+    {
+      name: "iphone-14",
+      use: { ...devices["iPhone 14"] },
+    },
+    {
+      name: "pixel-5",
+      use: { ...devices["Pixel 5"] },
     },
   ],
   // Não inicia o servidor automaticamente — assume `next dev` rodando
