@@ -628,6 +628,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const splitTroco = Math.max(0, splitPago - total);
   const isSplitValid = splitPago >= total && splitPagamentos.length > 0;
 
+  // Mesa livre selecionada = modo "Abrir Mesa" (sem pagamento imediato)
+  const mesaSelecionada = mesasPDV.find((m) => m.id === selectedMesaId);
+  const isModoAbrirMesa = vinculadoAMesa && !!selectedMesaId && (mesaSelecionada?.comandas.length ?? 0) === 0;
+
   // Troco em dinheiro = dinheiro pago - (total - outros métodos)
   const splitDinheiroPago = splitPagamentos.filter(p => p.metodo === 'DINHEIRO').reduce((s, p) => s + p.valorCentavos, 0);
   const splitNaoDinheiro = splitPagamentos.filter(p => p.metodo !== 'DINHEIRO').reduce((s, p) => s + p.valorCentavos, 0);
@@ -803,6 +807,11 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const onSubmit = (_data: CheckoutForm) => {
     if (items.length === 0) return showToast("Carrinho vazio.", 'error');
     if (!isTurnoAberto) return showToast("Abra o caixa antes de vender.", 'error');
+    // Modo "Abrir Mesa": ignora validação de pagamento
+    if (isModoAbrirMesa) {
+      handleAbrirMesa();
+      return;
+    }
     if (!isSplitValid) return showToast(`Pagamento insuficiente. Falta ${fmt(splitRestante)}`, 'error');
     mutation.mutate(_data);
   };
@@ -823,6 +832,36 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       setCartOpen(false);
     } else {
       setComandaModalOpen(true);
+    }
+  };
+
+  // ── Abrir Mesa silenciosamente (sem pagamento imediato) ──────────────────
+  const [abrindoMesa, setAbrindoMesa] = useState(false);
+  const handleAbrirMesa = async () => {
+    if (!selectedMesaId || items.length === 0) return;
+    setAbrindoMesa(true);
+    try {
+      const nomeMesa = mesaSelecionada?.nome ?? `Mesa ${selectedMesaId}`;
+      const cr = await abrirComanda(selectedMesaId, novaComandaNome || undefined);
+      if (!("id" in cr)) {
+        showToast("Erro ao abrir mesa. Tente novamente.", "error");
+        return;
+      }
+      // Salva os itens na comanda recém-aberta
+      updateComandaItems(cr.id, items);
+      // Reset completo
+      clearCart();
+      setCartOpen(false);
+      resetForm();
+      resetSplitState();
+      resetMesaSelector();
+      await fetchMesasPDV();
+      showToast(`${nomeMesa} aberta com sucesso!`, "success");
+      setTimeout(() => searchInputRef.current?.focus(), 80);
+    } catch {
+      showToast("Erro ao abrir mesa. Tente novamente.", "error");
+    } finally {
+      setAbrindoMesa(false);
     }
   };
 
@@ -1488,6 +1527,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           </div>
 
           {/* ─── Split Payment Header ─── */}
+          {/* ─── Seção de pagamento — oculta no modo Abrir Mesa ─── */}
+          {!isModoAbrirMesa && (
           <div className="grid grid-cols-3 gap-2 dash-muted border dash-border rounded-2xl p-3">
             <div className="flex flex-col items-center gap-0.5">
               <span className="text-[8px] font-black uppercase tracking-widest dash-label">Total</span>
@@ -1504,8 +1545,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
               </span>
             </div>
           </div>
+          )}
 
           {/* ─── Split Input + Method Buttons ─── */}
+          {!isModoAbrirMesa && (
           <div className="flex flex-col gap-2">
             <input
               ref={splitInputRef}
@@ -1547,6 +1590,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
               ))}
             </div>
           </div>
+          )}
 
           {/* ─── Split List ─── */}
           <AnimatePresence>
@@ -1600,7 +1644,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             data-testid="btn-finalizar-venda"
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            disabled={items.length === 0 || !isSplitValid || mutation.isPending || !isTurnoAberto}
+            disabled={
+              items.length === 0 ||
+              (!isModoAbrirMesa && !isSplitValid) ||
+              mutation.isPending ||
+              abrindoMesa ||
+              !isTurnoAberto
+            }
             className="
               w-full h-[72px] bg-[var(--brasa)] hover:bg-[var(--brasa-hover)]
               disabled:opacity-40 disabled:cursor-not-allowed
@@ -1611,9 +1661,11 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             "
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
-            {mutation.isPending
+            {(mutation.isPending || abrindoMesa)
               ? <><Loader2 className="animate-spin" size={22}/> <span>Processando...</span></>
-              : <><CheckCircle2 size={22}/> <span>Receber {items.length > 0 ? fmt(total) : ''}</span></>
+              : isModoAbrirMesa
+                ? <><TableProperties size={22}/> <span>Abrir {mesaSelecionada?.nome ?? "Mesa"}</span></>
+                : <><CheckCircle2 size={22}/> <span>Receber {items.length > 0 ? fmt(total) : ''}</span></>
             }
           </motion.button>
 
