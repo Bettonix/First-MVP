@@ -10,7 +10,7 @@ import {
   DollarSign, Hash, TrendingUp, Star, Clock,
   Package, AlertTriangle, Users, X, CheckCircle2,
   ClipboardList, ShoppingBag, Search,
-  Pencil, Trash2, Plus, TableProperties, ToggleLeft, ToggleRight, ChevronLeft, RefreshCw,
+  Pencil, Trash2, Plus, TableProperties, ChevronLeft, RefreshCw,
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
 import { useTabStore, Comanda } from "@/store/useTabStore";
@@ -1202,22 +1202,37 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           {/* ─── Mesa Selector (Cascade) ──────────────────────────── */}
           {isMounted && (
             <div className="px-6 md:px-8 py-4 border-b dash-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TableProperties size={13} className="dash-label" />
-                  <span className="text-xs font-bold dash-label uppercase tracking-widest">Vincular à Mesa</span>
-                </div>
+
+              {/* ── Segmented Control: Pedido Direto / Mesa ── */}
+              <div className="flex gap-1.5 p-1 dash-muted rounded-2xl border dash-border">
                 <button
                   type="button"
-                  aria-label={vinculadoAMesa ? "Desvincular mesa" : "Vincular à mesa"}
-                  onClick={() => handleToggleVinculado(!vinculadoAMesa)}
+                  aria-pressed={!vinculadoAMesa}
+                  onClick={() => handleToggleVinculado(false)}
+                  className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-150
+                    ${!vinculadoAMesa
+                      ? "bg-[var(--porcelana)] border border-[var(--border-md)] shadow-[var(--shadow-xs)] dash-value"
+                      : "dash-label hover:dash-value"}`}
                 >
-                  {vinculadoAMesa
-                    ? <ToggleRight size={22} className="dash-highlight-text" />
-                    : <ToggleLeft size={22} className="dash-label" />}
+                  <ShoppingBag size={13} />
+                  Balcão
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={vinculadoAMesa}
+                  onClick={() => handleToggleVinculado(true)}
+                  className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-150
+                    ${vinculadoAMesa
+                      ? "bg-[var(--brasa-light)] border border-[var(--brasa-border)] dash-highlight-text"
+                      : "dash-label hover:dash-value"}`}
+                >
+                  <TableProperties size={13} />
+                  Mesa
                 </button>
               </div>
 
+              {/* ── Expansão animada da seleção de mesa ── */}
+              <div className={`overflow-hidden transition-all duration-200 ${vinculadoAMesa ? "max-h-[600px] mt-3" : "max-h-0"}`}>
               {vinculadoAMesa && (() => {
                 const mesaAtual         = mesasPDV.find((m) => m.id === selectedMesaId);
                 const comandaSelecionada = mesaAtual?.comandas.find((c) => c.id === selectedComandaId);
@@ -1403,6 +1418,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                   </div>
                 );
               })()}
+              </div>
             </div>
           )}
 
