@@ -243,6 +243,7 @@ function DiscountModal({ isOpen, onApply, onCancel }: { isOpen: boolean, onApply
         <div className="flex flex-col gap-4">
           <input
             autoFocus
+            data-testid="desconto-input"
             type="number"
             step="0.01"
             placeholder="0,00"
@@ -253,7 +254,7 @@ function DiscountModal({ isOpen, onApply, onCancel }: { isOpen: boolean, onApply
           />
           <div className="flex gap-3">
             <button onClick={onCancel} className="flex-1 h-12 dash-muted hover:dash-muted rounded-xl font-bold text-sm">Cancelar</button>
-            <button onClick={() => { onApply(Math.round(Number(val.replace(',','.')) * 100)); setVal(""); }} className="flex-1 h-12 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] rounded-xl font-bold text-sm">Aplicar</button>
+            <button data-testid="btn-aplicar-desconto" onClick={() => { onApply(Math.round(Number(val.replace(',','.')) * 100)); setVal(""); }} className="flex-1 h-12 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] rounded-xl font-bold text-sm">Aplicar</button>
           </div>
         </div>
       </motion.div>
@@ -409,7 +410,7 @@ function SwipeCartItem({ item, fmt, onIncrement, onDecrement, onRemove, onToggle
             >
               <Minus size={15} />
             </motion.button>
-            <span aria-live="polite" className="w-7 text-center text-sm font-black tabular-nums dash-value">{item.quantidade}</span>
+            <span aria-live="polite" data-testid={`qty-${item.produtoId}`} className="w-7 text-center text-sm font-black tabular-nums dash-value">{item.quantidade}</span>
             <motion.button
               type="button"
               whileTap={{ scale: 0.8 }}
@@ -1464,11 +1465,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 <span className="text-[9px] font-black uppercase tracking-[0.3em] dash-label">Total</span>
                 <button
                   type="button"
+                  data-testid="btn-abrir-desconto"
                   onClick={() => setDiscountModalOpen(true)}
                   className="text-[9px] dash-label hover:dash-highlight-text font-bold uppercase tracking-widest transition-all flex items-center gap-1"
                 >
                   {descontoCentavos > 0 ? (
-                    <span className="text-rose-400 flex items-center gap-1">
+                    <span data-testid="desconto-valor" className="text-rose-400 flex items-center gap-1">
                       -{fmt(descontoCentavos)} <X size={9} onClick={(e) => { e.stopPropagation(); setDesconto(0); }} />
                     </span>
                   ) : (
@@ -1477,8 +1479,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                 </button>
               </div>
               <div className="flex flex-col items-end">
-                {descontoCentavos > 0 && <span className="text-[10px] dash-subtitle line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
-                <span className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                {descontoCentavos > 0 && <span data-testid="subtotal-riscado" className="text-[10px] dash-subtitle line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
+                <span data-testid="total-grande" className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
                   {isMounted ? fmt(total) : 'R$ 0,00'}
                 </span>
               </div>
