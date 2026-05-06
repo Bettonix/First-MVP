@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 
 const createOperatorSchema = z.object({
   nome: z.string().min(2, "Nome precisa ter ao menos 2 caracteres.").max(100),
-  email: z.string().email("E-mail inválido."),
+  email: z.email("E-mail inválido."),
   senha: z.string().min(6, "Senha precisa ter ao menos 6 caracteres."),
 });
 

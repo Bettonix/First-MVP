@@ -36,7 +36,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
     setModalType(type);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 

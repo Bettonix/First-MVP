@@ -71,7 +71,7 @@ export default function LoginPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (step === 1) { handleContinue(); return; }
     if (!password || password.length < 6) { setServerError("Senha deve ter ao menos 6 caracteres."); return; }

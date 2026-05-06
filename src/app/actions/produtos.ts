@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { produtoSchema, ProdutoFormData } from "@/schemas/produto.schema";
@@ -9,9 +10,9 @@ import { getTenantIdOrRedirect } from "@/lib/auth";
 
 export async function createProduto(data: ProdutoFormData) {
   const result = produtoSchema.safeParse(data);
-  
+
   if (!result.success) {
-    return { success: false as const, errors: result.error.flatten().fieldErrors };
+    return { success: false as const, errors: z.treeifyError(result.error) };
   }
 
   const tenantId = await getTenantIdOrRedirect();
@@ -116,9 +117,8 @@ export async function toggleProdutoAtivo(produtoId: string, ativo: boolean) {
 export async function updateProduto(produtoId: string, data: ProdutoFormData) {
   const result = produtoSchema.safeParse(data);
   if (!result.success) {
-    return { success: false as const, errors: result.error.flatten().fieldErrors };
+    return { success: false as const, errors: z.treeifyError(result.error) };
   }
-
   const tenantId = await getTenantIdOrRedirect();
 
   // Garantia de Inteiro: Reforce que precoCentavos e estoques sejam Math.round()
