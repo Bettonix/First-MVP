@@ -8,7 +8,7 @@ import {
   ShoppingCart, Banknote, QrCode, CreditCard,
   Loader2, Lock, Minus,
   DollarSign, Hash, TrendingUp, Star, Clock,
-  Package, AlertTriangle, Users, X, CheckCircle2,
+  Package, AlertTriangle, X, CheckCircle2,
   ClipboardList, ShoppingBag, Search,
   Pencil, Trash2, Plus, TableProperties, ChevronLeft, RefreshCw,
 } from "lucide-react";
@@ -1362,7 +1362,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
                 // ── STEP A: Mesa Grid ─────────────────────────────────
                 return (
-                  <div className="mt-3 space-y-2">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] font-black uppercase tracking-widest dash-label">Selecione a Mesa</p>
                       <button
@@ -1380,39 +1380,44 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                         <p className="text-[10px] dash-subtitle mt-1">Cadastre em Configurações → Mesas.</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {mesasPDV.map((m) => {
-                          const ocupada = m.comandas.length > 0;
-                          const total = m.comandas.reduce((acc, c) => acc + c.totalCentavos, 0);
-                          return (
-                            <button
-                              key={m.id}
-                              type="button"
-                              onClick={() => setSelectedMesaId(m.id)}
-                              className={`relative flex flex-col items-start gap-1 rounded-xl px-3 py-2.5 border transition-all text-left
-                                ${ocupada
-                                  ? "dash-icon-accent border-[var(--brasa-border)] hover:bg-[var(--brasa-hover)]/15"
-                                  : "dash-muted dash-border hover:border-[var(--brasa-border)] hover:dash-muted"}`}
-                            >
-                              <div className="flex items-center gap-1.5 w-full">
-                                <div className={`w-1.5 h-1.5 rounded-full ${ocupada ? "bg-[var(--brasa)]" : "bg-[var(--border-strong)]"}`} />
-                                <span className={`text-sm font-black truncate ${ocupada ? "dash-highlight-text" : "dash-value"}`}>
+                      <div className="max-h-52 overflow-y-auto overscroll-contain scrollbar-hide -mx-1 px-1">
+                        <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                          {mesasPDV.map((m) => {
+                            const ocupada = m.comandas.length > 0;
+                            const total   = m.comandas.reduce((acc, c) => acc + c.totalCentavos, 0);
+                            return (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => setSelectedMesaId(m.id)}
+                                aria-label={`${m.nome} — ${ocupada ? "ocupada" : "livre"}`}
+                                className={`relative flex flex-col items-center justify-center gap-1 rounded-xl py-3 px-2 border transition-all duration-150 text-center min-h-[64px]
+                                  ${ocupada
+                                    ? "bg-[var(--mel-light)] border-[var(--mel)] hover:brightness-95"
+                                    : "bg-[var(--success-bg)] border-[var(--success)]/30 hover:border-[var(--success)]/60 hover:brightness-95"}`}
+                              >
+                                {/* Status dot */}
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ocupada ? "bg-[var(--mel)]" : "bg-[var(--success)]"}`} />
+
+                                {/* Nome */}
+                                <span className={`text-xs font-black leading-tight truncate w-full ${ocupada ? "text-[var(--warning)]" : "text-[var(--success)]"}`}>
                                   {m.nome}
                                 </span>
-                              </div>
-                              {ocupada ? (
-                                <div className="flex items-center justify-between w-full">
-                                  <span className="text-[9px] font-bold dash-highlight-text opacity-80 uppercase tracking-wider flex items-center gap-1">
-                                    <Users size={9} /> {m.comandas.length}
+
+                                {/* Status label */}
+                                {ocupada ? (
+                                  <span className="text-[9px] font-bold text-[var(--warning)] opacity-80 tabular-nums">
+                                    {fmtBRL(total)}
                                   </span>
-                                  <span className="text-[10px] font-black tabular-nums dash-highlight-text">{fmtBRL(total)}</span>
-                                </div>
-                              ) : (
-                                <span className="text-[9px] font-bold dash-label uppercase tracking-wider">Livre</span>
-                              )}
-                            </button>
-                          );
-                        })}
+                                ) : (
+                                  <span className="text-[9px] font-bold text-[var(--success)] opacity-70 uppercase tracking-wider">
+                                    Livre
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
