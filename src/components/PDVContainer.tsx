@@ -375,8 +375,26 @@ function SwipeCartItem({ item, fmt, onIncrement, onDecrement, onRemove, onToggle
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: -60, scale: 0.9 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className={`relative overflow-hidden rounded-[24px] ${item.prepared ? 'opacity-40' : 'opacity-100'}`}
+      className={`relative overflow-hidden rounded-[24px] ${item.prepared ? 'opacity-40' : item.saved ? 'opacity-60' : 'opacity-100'}`}
     >
+      {/* Item "saved" — somente leitura, sem swipe/controles */}
+      {item.saved ? (
+        <div className="relative dash-muted p-4 rounded-[24px] border dash-border border-dashed">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl dash-card border dash-border shrink-0">
+              <ClipboardList size={14} className="dash-label" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm leading-tight dash-value truncate">{item.nome}</p>
+              <p className="text-xs dash-label font-bold tabular-nums mt-0.5">{item.quantidade}× {fmt(item.precoCentavos)}</p>
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest dash-label bg-[var(--muted)] border dash-border px-2 py-1 rounded-lg shrink-0">
+              Enviado
+            </span>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Fundo vermelho revelado pelo swipe */}
       <motion.div
         style={{ background }}
@@ -453,6 +471,8 @@ function SwipeCartItem({ item, fmt, onIncrement, onDecrement, onRemove, onToggle
           </p>
         )}
       </motion.div>
+      </>
+      )}
     </motion.li>
   );
 }
@@ -460,7 +480,7 @@ function SwipeCartItem({ item, fmt, onIncrement, onDecrement, onRemove, onToggle
 // ─── Main Component ───────────────────────────────────────────
 
 export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, lowStockItems, recentSales, initialProdutos, showWelcome, userRole = "GERENTE" }: PDVContainerProps) {
-  const { items, addItem, removeItem, incrementItem, decrementItem, togglePrepared, clearCart, totalCentavos, subtotalCentavos, descontoCentavos, setDesconto, setItems } = useCartStore();
+  const { items, addItem, removeItem, incrementItem, decrementItem, togglePrepared, clearCart, totalCentavos, subtotalCentavos, descontoCentavos, setDesconto, setItems, loadTableContext, newItemsTotalCentavos } = useCartStore();
   const { comandas, saveComanda, updateComandaItems, activeComandaId, setActiveComanda, closeComanda } = useTabStore();
   const { onSaleSuccess } = useSensoryFeedback();
   const { isOnline, pendingCount, isSyncing, justReconnected } = useOfflineSync();
@@ -514,6 +534,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const [selectedComandaId, setSelectedComandaId]         = useState("");
   const [novaComandaNome, setNovaComandaNome]             = useState("");
   const [novaComandaConfirmed, setNovaComandaConfirmed]   = useState(false);
+  // ID da mesa ocupada carregada no contexto do PDV (modo "Enviar Adicionais")
+  const [mesaOcupadaContextId, setMesaOcupadaContextId]   = useState<string | null>(null);
 
   const fetchMesasPDV = useCallback(() => {
     setMesasPDVLoading(true);
@@ -541,6 +563,36 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
     setNovaComandaNome("");
     setNovaComandaConfirmed(false);
     setMesasPDV([]);
+    setMesaOcupadaContextId(null);
+  };
+
+  // ── Carregar mesa ocupada no contexto do PDV ─────────────────
+  const handleCarregarMesaOcupada = (mesa: MesaComComanda) => {
+    // Proteção: carrinho com itens não-saved pertence a outro contexto
+    const hasUnsavedItems = items.some(i => !i.saved);
+    if (hasUnsavedItems) {
+      showToast("Finalize ou limpe o carrinho atual antes de abrir uma mesa.", "error");
+      return;
+    }
+    // Carrega itens da primeira comanda ativa como "saved"
+    const comanda = mesa.comandas[0];
+    const savedItems = comanda
+      ? comanda.itens.map((i, idx) => ({
+          produtoId: `saved__${comanda.id}__${idx}`,
+          nome: i.nome,
+          quantidade: i.quantidade,
+          precoCentavos: i.precoCentavos,
+          prepared: false,
+          saved: true as const,
+        }))
+      : [];
+    loadTableContext(savedItems);
+    setMesaOcupadaContextId(mesa.id);
+    setSelectedMesaId(mesa.id);
+    setSelectedComandaId(comanda?.id ?? "");
+    setVinculadoAMesa(true);
+    setCartOpen(true);
+    showToast(`${mesa.nome} carregada. Adicione itens e clique em "Enviar Adicionais".`, "success");
   };
 
   const handleAddProduct = useCallback((id: string, nome: string, preco: number) => {
@@ -631,6 +683,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   // Mesa livre selecionada = modo "Abrir Mesa" (sem pagamento imediato)
   const mesaSelecionada = mesasPDV.find((m) => m.id === selectedMesaId);
   const isModoAbrirMesa = vinculadoAMesa && !!selectedMesaId && (mesaSelecionada?.comandas.length ?? 0) === 0;
+
+  // Mesa ocupada carregada no contexto = modo "Enviar Adicionais"
+  const newItemsTotal = newItemsTotalCentavos();
+  const hasNewItems   = items.some(i => !i.saved);
+  const isModoEnviarAdicionais = !!mesaOcupadaContextId && hasNewItems;
+  // No modo adicionais, o split valida apenas os itens novos
+  const isSplitValidAdicionais = splitPago >= newItemsTotal && splitPagamentos.length > 0;
 
   // Troco em dinheiro = dinheiro pago - (total - outros métodos)
   const splitDinheiroPago = splitPagamentos.filter(p => p.metodo === 'DINHEIRO').reduce((s, p) => s + p.valorCentavos, 0);
@@ -810,6 +869,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
     // Modo "Abrir Mesa": ignora validação de pagamento
     if (isModoAbrirMesa) {
       handleAbrirMesa();
+      return;
+    }
+    // Modo "Enviar Adicionais": valida apenas os itens novos
+    if (isModoEnviarAdicionais) {
+      if (!isSplitValidAdicionais) return showToast(`Pagamento insuficiente. Falta ${fmt(Math.max(0, newItemsTotal - splitPago))}`, 'error');
+      mutation.mutate(_data);
       return;
     }
     if (!isSplitValid) return showToast(`Pagamento insuficiente. Falta ${fmt(splitRestante)}`, 'error');
@@ -1428,7 +1493,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                               <button
                                 key={m.id}
                                 type="button"
-                                onClick={() => setSelectedMesaId(m.id)}
+                                onClick={() => ocupada ? handleCarregarMesaOcupada(m) : setSelectedMesaId(m.id)}
                                 aria-label={`${m.nome} — ${ocupada ? "ocupada" : "livre"}`}
                                 className={`relative flex flex-col items-center justify-center gap-1 rounded-xl py-3 px-2 border transition-all duration-150 text-center min-h-[64px]
                                   ${ocupada
@@ -1646,7 +1711,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             disabled={
               items.length === 0 ||
-              (!isModoAbrirMesa && !isSplitValid) ||
+              (!isModoAbrirMesa && !isModoEnviarAdicionais && !isSplitValid) ||
+              (isModoEnviarAdicionais && !hasNewItems) ||
               mutation.isPending ||
               abrindoMesa ||
               !isTurnoAberto
@@ -1665,7 +1731,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
               ? <><Loader2 className="animate-spin" size={22}/> <span>Processando...</span></>
               : isModoAbrirMesa
                 ? <><TableProperties size={22}/> <span>Abrir {mesaSelecionada?.nome ?? "Mesa"}</span></>
-                : <><CheckCircle2 size={22}/> <span>Receber {items.length > 0 ? fmt(total) : ''}</span></>
+                : isModoEnviarAdicionais
+                  ? <><Plus size={22}/> <span>Enviar Adicionais {hasNewItems ? fmt(newItemsTotal) : ''}</span></>
+                  : <><CheckCircle2 size={22}/> <span>Receber {items.length > 0 ? fmt(total) : ''}</span></>
             }
           </motion.button>
 
