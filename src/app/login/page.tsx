@@ -31,6 +31,22 @@ const slideVariants = {
   exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
 };
 
+// Staggered entrance — brand panel
+const brandContainer = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+};
+const brandItem = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 280, damping: 22 } },
+};
+
+// Form panel entrance
+const formPanelVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 260, damping: 24, delay: 0.08 } },
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
@@ -99,32 +115,47 @@ export default function LoginPage() {
           <div className="auth-brand-watermark">B</div>
         </div>
         <div className="auth-brand-accent" />
-        <div className="auth-brand-top">
-          <span className="auth-brand-gem" />
-          <span className="auth-brand-name-sm">Balcão Rápido</span>
-        </div>
-        <div className="auth-brand-center">
-          <p className="auth-eyebrow">PDV Para Restaurantes</p>
-          <h1 className="auth-display">
+        <motion.div
+          className="auth-brand-top"
+          variants={brandContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.span className="auth-brand-gem" variants={brandItem} />
+          <motion.span className="auth-brand-name-sm" variants={brandItem}>Balcão Rápido</motion.span>
+        </motion.div>
+        <motion.div
+          className="auth-brand-center"
+          variants={brandContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.p className="auth-eyebrow" variants={brandItem}>PDV Para Restaurantes</motion.p>
+          <motion.h1 className="auth-display" variants={brandItem}>
             <span className="auth-display-white">BALCÃO</span>
             <span className="auth-display-green">RÁPIDO.</span>
-          </h1>
-          <p className="auth-brand-sub">
+          </motion.h1>
+          <motion.p className="auth-brand-sub" variants={brandItem}>
             Vendas ágeis. Controle total.<br />
             Para restaurantes que não param.
-          </p>
-        </div>
-        <div className="auth-brand-stats">
-          <div className="auth-stat">
+          </motion.p>
+        </motion.div>
+        <motion.div
+          className="auth-brand-stats"
+          variants={brandContainer}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div className="auth-stat" variants={brandItem}>
             <span className="auth-stat-num">10k+</span>
             <span className="auth-stat-lbl">pedidos / mês</span>
-          </div>
+          </motion.div>
           <div className="auth-stat-sep" />
-          <div className="auth-stat">
+          <motion.div className="auth-stat" variants={brandItem}>
             <span className="auth-stat-num">200+</span>
             <span className="auth-stat-lbl">restaurantes</span>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </aside>
 
       {/* ── Form panel ── */}
@@ -134,7 +165,13 @@ export default function LoginPage() {
           <span className="auth-mobile-name">Balcão Rápido</span>
         </div>
 
-        <div className="auth-form-wrap" style={{ overflow: "hidden" }}>
+        <motion.div
+          className="auth-form-wrap"
+          style={{ overflow: "hidden" }}
+          variants={formPanelVariants}
+          initial="hidden"
+          animate="visible"
+        >
 
           {/* Step header — slides with content */}
           <AnimatePresence mode="wait" custom={direction}>
@@ -244,10 +281,13 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <button
+                <motion.button
                   type="submit"
                   disabled={isLoading}
                   className="auth-submit-btn"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
                   {isPendingForm ? (
                     <Loader2 size={16} className="animate-spin" />
@@ -257,7 +297,7 @@ export default function LoginPage() {
                       <ArrowRight size={16} />
                     </>
                   )}
-                </button>
+                </motion.button>
               </motion.div>
             </AnimatePresence>
           </form>
@@ -269,24 +309,27 @@ export default function LoginPage() {
             <span className="auth-divider-line" />
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={handleGoogleLogin}
             disabled={isLoading}
             className="auth-google-btn"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
           >
             {isPendingGoogle
               ? <Loader2 size={17} className="animate-spin" />
               : <GoogleIcon />
             }
             <span>Continuar com Google</span>
-          </button>
+          </motion.button>
 
           <p className="auth-footer-txt">
             Ao entrar, você concorda com os{" "}
             <button type="button" className="auth-footer-link">Termos de Uso</button>.
           </p>
-        </div>
+        </motion.div>
       </section>
     </div>
   );
