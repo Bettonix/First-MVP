@@ -688,6 +688,8 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const newItemsTotal = newItemsTotalCentavos();
   const hasNewItems   = items.some(i => !i.saved);
   const isModoEnviarAdicionais = !!mesaOcupadaContextId && hasNewItems;
+  // Mesa ocupada carregada, carrinho só tem itens saved = modo "Fechar Conta"
+  const isModoFecharConta = !!mesaOcupadaContextId && items.length > 0 && items.every(i => i.saved);
   // No modo adicionais, o split valida apenas os itens novos
   const isSplitValidAdicionais = splitPago >= newItemsTotal && splitPagamentos.length > 0;
 
@@ -718,6 +720,41 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
   const mutation = useMutation({
     mutationFn: async (data: CheckoutForm) => {
+      // ── Modo "Fechar Conta": itens são saved (IDs sintéticos), usa totalCentavos da comanda ──
+      if (isModoFecharConta) {
+        const cartSerialized = items.map(item => ({
+          // saved items têm IDs sintéticos — serializa apenas nome/qtd/preço
+          produtoId: BigInt(0),
+          nome: item.nome,
+          quantidade: item.quantidade,
+          precoCentavos: item.precoCentavos,
+        }));
+
+        if (!navigator.onLine) {
+          await enqueueVenda({
+            payload: {
+              cart: items.map(item => ({
+                produtoId: "0",
+                nome: item.nome,
+                quantidade: item.quantidade,
+                precoCentavos: item.precoCentavos,
+              })),
+              pagamentos: splitPagamentos,
+              totalCentavos: total,
+              troco: trocoFinal,
+            },
+          });
+          return { __offline: true as const };
+        }
+
+        const res = await registrarVenda({ cart: cartSerialized, pagamentos: splitPagamentos });
+        if (!res.success) throw new Error(res.error);
+
+        if (selectedComandaId) await fecharComanda(selectedComandaId);
+
+        return res;
+      }
+
       // Valida que todos os IDs são numéricos antes de converter para BigInt
       const invalidItems = items.filter(item => !/^\d+$/.test(item.produtoId));
       if (invalidItems.length > 0) {
@@ -877,6 +914,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       mutation.mutate(_data);
       return;
     }
+    // Modo "Fechar Conta": valida split pelo total completo da mesa
+    if (isModoFecharConta) {
+      if (!isSplitValid) return showToast(`Pagamento insuficiente. Falta ${fmt(splitRestante)}`, 'error');
+      mutation.mutate(_data);
+      return;
+    }
     if (!isSplitValid) return showToast(`Pagamento insuficiente. Falta ${fmt(splitRestante)}`, 'error');
     mutation.mutate(_data);
   };
@@ -929,6 +972,15 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       setAbrindoMesa(false);
     }
   };
+
+  // Conteúdo do botão principal — variável para evitar ternários aninhados (S3358)
+  const btnPrincipalContent = (() => {
+    if (mutation.isPending || abrindoMesa) return { icon: <Loader2 className="animate-spin" size={22}/>, label: "Processando..." };
+    if (isModoAbrirMesa)        return { icon: <TableProperties size={22}/>, label: `Abrir ${mesaSelecionada?.nome ?? "Mesa"}` };
+    if (isModoEnviarAdicionais) return { icon: <Plus size={22}/>, label: `Enviar Adicionais ${hasNewItems ? fmt(newItemsTotal) : ''}` };
+    if (isModoFecharConta)      return { icon: <DollarSign size={22}/>, label: `Fechar Conta ${fmt(total)}` };
+    return { icon: <CheckCircle2 size={22}/>, label: `Receber ${items.length > 0 ? fmt(total) : ''}` };
+  })();
 
   const confirmSaveComanda = () => {
     if (!comandaName) return;
@@ -1711,30 +1763,25 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             disabled={
               items.length === 0 ||
-              (!isModoAbrirMesa && !isModoEnviarAdicionais && !isSplitValid) ||
+              (!isModoAbrirMesa && !isModoEnviarAdicionais && !isModoFecharConta && !isSplitValid) ||
               (isModoEnviarAdicionais && !hasNewItems) ||
               mutation.isPending ||
               abrindoMesa ||
               !isTurnoAberto
             }
-            className="
-              w-full h-[72px] bg-[var(--brasa)] hover:bg-[var(--brasa-hover)]
-              disabled:opacity-40 disabled:cursor-not-allowed
+            className={`
+              w-full h-[72px] disabled:opacity-40 disabled:cursor-not-allowed
               text-white rounded-3xl font-black text-xl
-              shadow-[0_8px_32px_rgba(211,84,0,0.35)]
-              hover:shadow-[0_12px_40px_rgba(211,84,0,0.45)]
               transition-all flex items-center justify-center gap-3 relative overflow-hidden group
-            "
+              ${isModoFecharConta
+                ? "bg-[var(--success)] hover:brightness-90 shadow-[0_8px_32px_rgba(45,106,79,0.35)] hover:shadow-[0_12px_40px_rgba(45,106,79,0.45)]"
+                : "bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] shadow-[0_8px_32px_rgba(211,84,0,0.35)] hover:shadow-[0_12px_40px_rgba(211,84,0,0.45)]"
+              }
+            `}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
-            {(mutation.isPending || abrindoMesa)
-              ? <><Loader2 className="animate-spin" size={22}/> <span>Processando...</span></>
-              : isModoAbrirMesa
-                ? <><TableProperties size={22}/> <span>Abrir {mesaSelecionada?.nome ?? "Mesa"}</span></>
-                : isModoEnviarAdicionais
-                  ? <><Plus size={22}/> <span>Enviar Adicionais {hasNewItems ? fmt(newItemsTotal) : ''}</span></>
-                  : <><CheckCircle2 size={22}/> <span>Receber {items.length > 0 ? fmt(total) : ''}</span></>
-            }
+            {btnPrincipalContent.icon}
+            <span>{btnPrincipalContent.label}</span>
           </motion.button>
 
           {mutation.isError && (
