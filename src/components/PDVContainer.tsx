@@ -23,6 +23,8 @@ import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { SetupChecklist } from "./SetupChecklist";
+import { SearchHotspot } from "./SearchHotspot";
+import { useFirstSaleConfetti } from "@/hooks/useFirstSaleConfetti";
 import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo } from "react";
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
@@ -522,6 +524,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { fireConfetti } = useFirstSaleConfetti();
   const [selectedHistoryDate, setSelectedHistoryDate] = useState(new Date());
   const [selectedDashboardDate, setSelectedDashboardDate] = useState(new Date());
   const [isMounted, setIsMounted] = useState(false);
@@ -894,6 +897,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       } else {
         doReset();
         showToast("Venda finalizada!");
+        fireConfetti();
       }
     },
     onError: (err: Error) => {
@@ -1116,8 +1120,14 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                       placeholder="Bipar código ou digitar produto..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-12 dash-muted border dash-border rounded-xl pl-12 pr-4 text-sm font-bold focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:text-neutral-600"
+                      onFocus={() => {
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("hasSeenSearchHotspot", "1");
+                        }
+                      }}
+                      className="w-full h-12 dash-muted border dash-border rounded-xl pl-12 pr-10 text-sm font-bold focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:text-neutral-600"
                     />
+                    <SearchHotspot />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setActiveTab("todos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all ${activeTab === "todos" ? 'border-[var(--brasa-border)] dash-icon-accent dash-highlight-text' : 'dash-border dash-muted dash-label hover:dash-value'}`}>Todos</button>
