@@ -427,7 +427,7 @@ h1, h2 { font-family: var(--font-serif); }
   line-height: 1; letter-spacing: -0.03em;
   margin: 0 0 1.5rem; padding-top: 0.08em;
 }
-.auth-display-white { display: block; color: #F5EFE6; }
+.auth-display-white { display: block; color: #FFFFFF; }
 .auth-display-green { display: block; color: #D35400; }
 .auth-brand-sub { font-size: 0.9375rem; line-height: 1.7; color: #B09070; font-weight: 400; }
 .auth-brand-stats {
@@ -441,7 +441,7 @@ h1, h2 { font-family: var(--font-serif); }
 .auth-stat-num {
   font-family: var(--font-serif);
   font-size: 1.625rem; font-weight: 700;
-  color: #F5EFE6; letter-spacing: -0.04em; line-height: 1;
+  color: #FFFFFF; letter-spacing: -0.04em; line-height: 1;
 }
 .auth-stat-lbl { font-size: 0.6875rem; font-weight: 500; color: #B09070; letter-spacing: 0.04em; }
 .auth-stat-sep { width: 1px; height: 34px; background-color: rgba(211,84,0,0.15); }
