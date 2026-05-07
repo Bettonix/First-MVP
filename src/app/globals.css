@@ -162,19 +162,19 @@ h1, h2 { font-family: var(--font-serif); }
 :not([data-theme="dark"]) .shadow-emerald-600\/20 { box-shadow: 0 4px 12px rgba(211,84,0,0.2) !important; }
 
 /* Sidebar */
-:not([data-theme="dark"]) aside {
+:not([data-theme="dark"]) aside:not(.auth-brand) {
   background-color: var(--porcelana) !important;
   border-right: 1px solid var(--border) !important;
   box-shadow: 2px 0 8px rgba(45,45,45,0.05) !important;
 }
-:not([data-theme="dark"]) aside svg { color: var(--ink-3) !important; }
-:not([data-theme="dark"]) aside button:hover svg { color: var(--brasa) !important; }
-:not([data-theme="dark"]) aside button[class*="bg-emerald-500\/10"] {
+:not([data-theme="dark"]) aside:not(.auth-brand) svg { color: var(--ink-3) !important; }
+:not([data-theme="dark"]) aside:not(.auth-brand) button:hover svg { color: var(--brasa) !important; }
+:not([data-theme="dark"]) aside:not(.auth-brand) button[class*="bg-emerald-500\/10"] {
   background-color: var(--brasa-light) !important;
   border-color: var(--brasa-border) !important;
 }
-:not([data-theme="dark"]) aside button[class*="bg-emerald-500\/10"] svg,
-:not([data-theme="dark"]) aside button[class*="text-emerald-400"] svg { color: var(--brasa) !important; }
+:not([data-theme="dark"]) aside:not(.auth-brand) button[class*="bg-emerald-500\/10"] svg,
+:not([data-theme="dark"]) aside:not(.auth-brand) button[class*="text-emerald-400"] svg { color: var(--brasa) !important; }
 
 /* Sidebar tooltips */
 :not([data-theme="dark"]) .bg-neutral-800.text-white {
