@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid, ShoppingCart,
@@ -29,7 +29,6 @@ const MOBILE_NAV = [
 
 export function AppSidebar({ userRole = "GERENTE" }: { userRole?: UserRole }) {
   const pathname = usePathname();
-  const router   = useRouter();
 
   const [isPendingLogout, startLogout] = useTransition();
   const clearCart = useCartStore((s) => s.clearCart);
@@ -38,7 +37,6 @@ export function AppSidebar({ userRole = "GERENTE" }: { userRole?: UserRole }) {
     startLogout(async () => {
       clearCart();
       await signOut();
-      router.push("/login");
     });
   };
 
