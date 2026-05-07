@@ -6,6 +6,7 @@ import { abrirTurno, fecharTurno, registrarMovimentacao } from "@/app/actions/tu
 import { useRouter } from "next/navigation";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { motion, AnimatePresence } from "framer-motion";
+import { InfoTooltip } from "./ui/InfoTooltip";
 
 export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAberto: boolean, insights?: { totalHojeCentavos?: number; vaultCentavos?: number }, onMessage?: (msg: string, type: 'success' | 'error') => void }) {
   const [modalType, setModalType] = useState<'ABRIR' | 'FECHAR' | 'SANGRIA' | 'REFORCO' | null>(null);
@@ -81,6 +82,13 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
     FECHAR: 'Fechar Turno',
     SANGRIA: 'Retirar Dinheiro',
     REFORCO: 'Adicionar Troco',
+  };
+
+  const modalTooltips: Record<string, string> = {
+    ABRIR: 'Valor em dinheiro que você coloca na gaveta para dar troco. Não é receita.',
+    FECHAR: 'Conte o dinheiro físico na gaveta e informe o total. O sistema calculará a diferença.',
+    SANGRIA: 'Retirada de dinheiro da gaveta. Ex: pagar fornecedor, guardar excesso.',
+    REFORCO: 'Adição de dinheiro na gaveta. Ex: repor troco quando o caixa está baixo.',
   };
 
   const modalLabels: Record<string, string> = {
@@ -186,20 +194,27 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
               {modalType === 'FECHAR' && insights && (
                 <div className="rounded-xl p-4 mb-2 space-y-3 dash-card-muted">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="dash-subtitle">Vendas do Turno (Din+Pix)</span>
+                    <span className="dash-subtitle flex items-center gap-1.5">
+                      Vendas do Turno (Din+Pix)
+                      <InfoTooltip text="Total de vendas pagas em Dinheiro e PIX neste turno. Cartão não entra na gaveta." position="right" />
+                    </span>
                     <span className="font-bold dash-value">{fmt(insights.totalHojeCentavos || 0)}</span>
                   </div>
                   <div className="h-px w-full" style={{ backgroundColor: "var(--border)" }} />
                   <div className="flex justify-between items-center">
-                    <span className="dash-label font-bold uppercase tracking-wider text-[10px]">Saldo Esperado Gaveta</span>
+                    <span className="dash-label font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                      Saldo Esperado Gaveta
+                      <InfoTooltip text="Valor que deveria estar fisicamente na gaveta: fundo de caixa + vendas em dinheiro − sangrias + reforços." position="right" />
+                    </span>
                     <span className="font-black text-xl tracking-tighter" style={{ color: "var(--brasa)" }}>{fmt(insights.vaultCentavos || 0)}</span>
                   </div>
                 </div>
               )}
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-black dash-label uppercase tracking-widest">
+                <label className="text-[10px] font-black dash-label uppercase tracking-widest flex items-center gap-1.5">
                   {modalLabels[modalType]}
+                  <InfoTooltip text={modalTooltips[modalType]} position="right" />
                 </label>
                 <input
                   type="number"

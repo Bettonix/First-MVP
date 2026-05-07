@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Star, AlertTriangle, Package } from "lucide-react";
 import { produtoSchema, ProdutoFormData, CATEGORIAS_PRODUTO } from "@/schemas/produto.schema";
 import { PremiumSelect } from "./PremiumSelect";
+import { InfoTooltip } from "./ui/InfoTooltip";
 
 interface ProductFormProps {
   onSubmit: (data: ProdutoFormData) => Promise<void>;
@@ -61,7 +62,10 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
           {errors.preco && <span className={errorClass}><AlertTriangle size={12}/> {errors.preco.message}</span>}
         </div>
         <div>
-          <label className={labelClass}>Preço de Custo (R$)</label>
+          <label className={`${labelClass} flex items-center gap-1.5`}>
+            Preço de Custo (R$)
+            <InfoTooltip text="Quanto você paga para produzir ou comprar este item. Usado para calcular sua margem de lucro nos relatórios." position="top" />
+          </label>
           <input type="number" step="0.01" inputMode="decimal" {...register("precoCusto", { valueAsNumber: true })} placeholder="0.00" className={inputClass} />
           {errors.precoCusto && <span className={errorClass}><AlertTriangle size={12}/> {errors.precoCusto.message}</span>}
         </div>
@@ -102,9 +106,10 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
                 className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${field.value ? 'translate-x-5' : 'translate-x-0'}`}
               />
             </button>
-            <div>
+            <div className="flex-1">
               <span className="text-sm font-black dash-value uppercase tracking-wider flex items-center gap-1.5">
                 <Package size={13} /> Controlar Estoque
+                <InfoTooltip text="Ative para produtos de revenda, como bebidas e combos fechados. O PDV deduzirá o estoque a cada venda." position="right" />
               </span>
               <span className="text-xs dash-label mt-0.5 block">Deduz automaticamente a cada venda</span>
             </div>
@@ -121,7 +126,10 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
             {errors.estoqueAtual && <span className={errorClass}><AlertTriangle size={12}/> {errors.estoqueAtual.message}</span>}
           </div>
           <div>
-            <label className={labelClass}>Estoque Mínimo (Alerta)</label>
+            <label className={`${labelClass} flex items-center gap-1.5`}>
+              Estoque Mínimo (Alerta)
+              <InfoTooltip text="O PDV exibirá um alerta visual quando o estoque atingir este limite. Recomendado: 20% do estoque inicial." position="top" />
+            </label>
             <input type="number" inputMode="numeric" {...register("estoqueMinimo", { valueAsNumber: true })} placeholder="5" className={inputClass} />
             {errors.estoqueMinimo && <span className={errorClass}><AlertTriangle size={12}/> {errors.estoqueMinimo.message}</span>}
           </div>
@@ -133,7 +141,10 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
         <div className="w-6 h-6 rounded-lg border-2 border-[var(--border-md)] flex items-center justify-center peer-checked:bg-[var(--brasa)] peer-checked:border-[var(--brasa)] transition-all shadow-inner">
           <Star size={14} className="text-white opacity-0 peer-checked:opacity-100 fill-current" />
         </div>
-        <span className="text-sm font-black dash-value uppercase tracking-wider">Fixar no topo (Favorito)</span>
+        <span className="text-sm font-black dash-value uppercase tracking-wider flex items-center gap-1.5">
+          Fixar no topo (Favorito)
+          <InfoTooltip text="Produtos favoritos aparecem primeiro na grade do PDV, facilitando o acesso aos itens mais vendidos." position="top" />
+        </span>
       </label>
 
       <button

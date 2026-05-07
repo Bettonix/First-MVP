@@ -19,6 +19,7 @@ import { registrarVenda, getHistoricoVendas, type VendaDetalhe } from "@/app/act
 import { getMesasComComanda, abrirComanda, fecharComanda, type MesaComComanda } from "@/app/actions/comandas";
 import { SaleDetailSheet } from "./SaleDetailSheet";
 import { QuickAddSheet, DeleteConfirmModal } from "./QuickAddSheet";
+import { InfoTooltip } from "./ui/InfoTooltip";
 import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
@@ -1103,7 +1104,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           <div className="flex-1 min-w-[200px] dash-card border dash-border rounded-2xl p-4 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl dash-icon-accent flex items-center justify-center dash-highlight-text"><Lock size={24}/></div>
             <div>
-              <p className="text-xs dash-label font-bold uppercase tracking-wider mb-0.5">Cofre (Dinheiro)</p>
+              <p className="text-xs dash-label font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                Cofre (Dinheiro)
+                <InfoTooltip text="Saldo estimado na gaveta: fundo de caixa + vendas em dinheiro − sangrias + reforços do turno atual." position="bottom" />
+              </p>
               <p className="text-lg font-black tabular-nums">{fmt(insights.vaultCentavos)}</p>
             </div>
           </div>
@@ -1345,7 +1349,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                    </div>
                    <div className="dash-card border border-purple-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"/>
-                      <h3 className="text-purple-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><TrendingUp size={14}/> Ticket Médio</h3>
+                      <h3 className="text-purple-500 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <TrendingUp size={14}/> Ticket Médio
+                        <InfoTooltip text="Valor médio por venda hoje. Calculado como: total de vendas ÷ número de pedidos." position="bottom" />
+                      </h3>
                       <p className="text-4xl font-black text-purple-400 tabular-nums tracking-tighter">{fmt(insights?.ticketMedioCentavos || 0)}</p>
                    </div>
                 </div>
@@ -1678,7 +1685,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                       -{fmt(descontoCentavos)} <X size={9} onClick={(e) => { e.stopPropagation(); setDesconto(0); }} />
                     </span>
                   ) : (
-                    <span>+ Desconto</span>
+                    <span className="flex items-center gap-1">
+                      + Desconto
+                      <InfoTooltip text="Aplica um desconto em reais no total do pedido. O valor original fica riscado para o cliente ver." position="top" />
+                    </span>
                   )}
                 </button>
               </div>

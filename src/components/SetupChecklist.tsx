@@ -57,6 +57,7 @@ export function SetupChecklist() {
       exit={{ opacity: 0, y: -12 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
       className="rounded-2xl border overflow-hidden"
+      data-testid="setup-checklist"
       style={{
         borderColor: "var(--border-md)",
         backgroundColor: "var(--porcelana)",

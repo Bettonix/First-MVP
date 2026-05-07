@@ -174,9 +174,7 @@ test.describe("Setup Checklist", () => {
     await page.goto("/app?welcome=1");
     await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 
-    // O checklist deve estar visível
-    const checklist = page.getByText("Primeiros passos");
-    await expect(checklist).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("setup-checklist")).toBeVisible({ timeout: 5_000 });
 
     await ctx.close();
   });
@@ -187,9 +185,10 @@ test.describe("Setup Checklist", () => {
     await page.goto("/app?welcome=1");
     await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByText("Criar um Produto")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Realizar Venda de Teste")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("Configurar Perfil")).toBeVisible({ timeout: 5_000 });
+    const checklist = page.getByTestId("setup-checklist");
+    await expect(checklist.getByText("Criar um Produto")).toBeVisible({ timeout: 5_000 });
+    await expect(checklist.getByText("Realizar Venda de Teste")).toBeVisible({ timeout: 5_000 });
+    await expect(checklist.getByText("Configurar Perfil")).toBeVisible({ timeout: 5_000 });
 
     await ctx.close();
   });
@@ -200,14 +199,12 @@ test.describe("Setup Checklist", () => {
     await page.goto("/app?welcome=1");
     await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 
-    const checklist = page.getByText("Primeiros passos");
-    await expect(checklist).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("setup-checklist")).toBeVisible({ timeout: 5_000 });
 
-    // Clica no botão fechar (aria-label="Fechar checklist")
     await page.getByRole("button", { name: "Fechar checklist" }).click();
     await page.waitForTimeout(400);
 
-    await expect(checklist).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId("setup-checklist")).not.toBeVisible({ timeout: 3_000 });
 
     await ctx.close();
   });
@@ -218,17 +215,18 @@ test.describe("Setup Checklist", () => {
     await page.goto("/app?welcome=1");
     await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 
-    await expect(page.getByText("Criar um Produto")).toBeVisible({ timeout: 5_000 });
+    const checklist = page.getByTestId("setup-checklist");
+    await expect(checklist.getByText("Criar um Produto")).toBeVisible({ timeout: 5_000 });
 
     // Recolhe
     await page.getByRole("button", { name: "Recolher" }).click();
-    await page.waitForTimeout(400);
-    await expect(page.getByText("Criar um Produto")).not.toBeVisible({ timeout: 3_000 });
+    await page.waitForTimeout(500);
+    await expect(checklist.getByText("Criar um Produto")).not.toBeVisible({ timeout: 3_000 });
 
     // Expande
     await page.getByRole("button", { name: "Expandir" }).click();
-    await page.waitForTimeout(400);
-    await expect(page.getByText("Criar um Produto")).toBeVisible({ timeout: 3_000 });
+    await page.waitForTimeout(500);
+    await expect(checklist.getByText("Criar um Produto")).toBeVisible({ timeout: 3_000 });
 
     await ctx.close();
   });
@@ -239,13 +237,13 @@ test.describe("Setup Checklist", () => {
     await page.goto("/app?welcome=1");
     await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 
-    // Progresso inicial: 0/3
-    await expect(page.getByText("0/3")).toBeVisible({ timeout: 5_000 });
+    const checklist = page.getByTestId("setup-checklist");
+    await expect(checklist.getByText("0/3")).toBeVisible({ timeout: 5_000 });
 
     // Marca primeira tarefa
     await page.getByRole("button", { name: /Marcar Criar um Produto/i }).click();
     await page.waitForTimeout(300);
-    await expect(page.getByText("1/3")).toBeVisible({ timeout: 3_000 });
+    await expect(checklist.getByText("1/3")).toBeVisible({ timeout: 3_000 });
 
     await ctx.close();
   });
