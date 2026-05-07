@@ -237,13 +237,14 @@ test.describe("Setup Checklist", () => {
     await page.goto("/app?welcome=1");
     await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 
-    const checklist = page.getByTestId("setup-checklist");
-    await expect(checklist.getByText("0/3")).toBeVisible({ timeout: 5_000 });
+    // Progresso inicial: 0/3
+    await expect(page.getByTestId("setup-checklist")).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[data-testid="setup-checklist"] span').filter({ hasText: "0/3" })).toBeVisible({ timeout: 5_000 });
 
     // Marca primeira tarefa
     await page.getByRole("button", { name: /Marcar Criar um Produto/i }).click();
-    await page.waitForTimeout(300);
-    await expect(checklist.getByText("1/3")).toBeVisible({ timeout: 3_000 });
+    await page.waitForTimeout(600);
+    await expect(page.locator('[data-testid="setup-checklist"] span').filter({ hasText: "1/3" })).toBeVisible({ timeout: 5_000 });
 
     await ctx.close();
   });

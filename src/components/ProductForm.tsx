@@ -55,7 +55,7 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
         {errors.nome && <span className={errorClass}><AlertTriangle size={12}/> {errors.nome.message}</span>}
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
         <div>
           <label className={labelClass}>Preço de Venda (R$)</label>
           <input type="number" step="0.01" inputMode="decimal" {...register("preco", { valueAsNumber: true })} placeholder="0.00" className={inputClass} />
@@ -119,7 +119,7 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
 
       {/* Campos de estoque — visíveis apenas quando gerenciarEstoque=true */}
       {gerenciarEstoque && (
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
           <div>
             <label className={labelClass}>Estoque Atual</label>
             <input type="number" inputMode="numeric" {...register("estoqueAtual", { valueAsNumber: true })} placeholder="0" className={inputClass} />
