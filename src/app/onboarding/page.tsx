@@ -2,7 +2,6 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { Store, UtensilsCrossed, ShoppingBag, Loader2, ArrowRight, Check } from "lucide-react";
 import { setupOnboarding } from "./actions";
 
@@ -37,8 +36,13 @@ const MODELOS = [
 ] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+function dotColor(n: number, step: number): string {
+  if (step > n) return "#10b981";
+  if (step === n) return "#059669";
+  return "rgba(255,255,255,0.08)";
+}
+
 export default function OnboardingPage() {
-  const router = useRouter();
   const [step, setStep]           = useState(1);
   const [direction, setDirection] = useState(1);
   const [isPending, start]        = useTransition();
@@ -118,7 +122,7 @@ export default function OnboardingPage() {
               key={n}
               animate={{
                 width: step === n ? 24 : 8,
-                backgroundColor: step > n ? "#10b981" : step === n ? "#059669" : "rgba(255,255,255,0.08)",
+                backgroundColor: dotColor(n, step),
               }}
               transition={{ duration: 0.3, ease: "easeOut" }}
               className="h-2 rounded-full"

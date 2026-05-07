@@ -4,24 +4,47 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const LS_KEY = "hasSeenSearchHotspot";
+const INPUT_SELECTOR = '[data-testid="pdv-search"]';
 
-export function SearchHotspot({ onDismiss }: { onDismiss?: () => void }) {
-  const [visible, setVisible] = useState(false);
+export function useSearchHotspot() {
+  const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!localStorage.getItem(LS_KEY)) setVisible(true);
+    if (localStorage.getItem(LS_KEY)) return;
+
+    // Mostra o hotspot após 300ms (ignora autoFocus inicial do mount)
+    const showTimer = setTimeout(() => {
+      setDismissed(false);
+
+      const dismiss = () => {
+        const input = document.querySelector<HTMLElement>(INPUT_SELECTOR);
+        if (!input) return;
+        localStorage.setItem(LS_KEY, "1");
+        setDismissed(true);
+        input.removeEventListener("pointerdown", dismiss);
+        input.removeEventListener("keydown", dismiss);
+        input.removeEventListener("focusin", dismiss);
+      };
+
+      // Escuta múltiplos eventos para cobrir autoFocus + clique + teclado
+      const input = document.querySelector<HTMLElement>(INPUT_SELECTOR);
+      if (input) {
+        input.addEventListener("pointerdown", dismiss);
+        input.addEventListener("keydown", dismiss);
+        input.addEventListener("focusin", dismiss);
+      }
+    }, 300);
+
+    return () => clearTimeout(showTimer);
   }, []);
 
-  const dismiss = () => {
-    localStorage.setItem(LS_KEY, "1");
-    setVisible(false);
-    onDismiss?.();
-  };
+  return { dismissed };
+}
 
+export function SearchHotspot({ dismissed }: { dismissed: boolean }) {
   return (
     <AnimatePresence>
-      {visible && (
+      {!dismissed && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -30,7 +53,6 @@ export function SearchHotspot({ onDismiss }: { onDismiss?: () => void }) {
           className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none z-20"
           aria-hidden="true"
         >
-          {/* Tooltip balão */}
           <motion.div
             initial={{ opacity: 0, x: 6 }}
             animate={{ opacity: 1, x: 0 }}
@@ -46,7 +68,6 @@ export function SearchHotspot({ onDismiss }: { onDismiss?: () => void }) {
               }}
             >
               Busque um produto aqui
-              {/* Seta apontando para o ponto */}
               <span
                 className="absolute right-[-5px] top-1/2 -translate-y-1/2 w-0 h-0"
                 style={{
@@ -58,14 +79,11 @@ export function SearchHotspot({ onDismiss }: { onDismiss?: () => void }) {
             </div>
           </motion.div>
 
-          {/* Ponto pulsante */}
           <div className="relative w-4 h-4 flex items-center justify-center">
-            {/* Anel externo ping */}
             <span
               className="absolute inline-flex w-full h-full rounded-full animate-ping opacity-60"
               style={{ backgroundColor: "var(--brasa)" }}
             />
-            {/* Ponto central */}
             <span
               className="relative inline-flex w-2.5 h-2.5 rounded-full"
               style={{
