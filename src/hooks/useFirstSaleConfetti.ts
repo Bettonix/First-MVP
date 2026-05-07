@@ -73,9 +73,9 @@ function glitterBurst() {
 }
 
 export function useFirstSaleConfetti() {
-  const fireConfetti = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (localStorage.getItem("hasMadeFirstSale")) return;
+  const fireConfetti = useCallback((): boolean => {
+    if (typeof window === "undefined") return false;
+    if (localStorage.getItem("hasMadeFirstSale")) return false;
 
     localStorage.setItem("hasMadeFirstSale", "1");
 
@@ -115,6 +115,8 @@ export function useFirstSaleConfetti() {
         zIndex: 9999,
       });
     }, 1100);
+
+    return true;
   }, []);
 
   return { fireConfetti };

@@ -25,6 +25,7 @@ import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { SetupChecklist } from "./SetupChecklist";
 import { SearchHotspot, useSearchHotspot } from "./SearchHotspot";
 import { useFirstSaleConfetti } from "@/hooks/useFirstSaleConfetti";
+import { GraduationModal } from "./GraduationModal";
 import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo } from "react";
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
@@ -526,6 +527,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { fireConfetti } = useFirstSaleConfetti();
   const { dismissed: hotspotDismissed } = useSearchHotspot();
+  const [graduationOpen, setGraduationOpen] = useState(false);
   const [selectedHistoryDate, setSelectedHistoryDate] = useState(new Date());
   const [selectedDashboardDate, setSelectedDashboardDate] = useState(new Date());
   const [isMounted, setIsMounted] = useState(false);
@@ -898,7 +900,10 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       } else {
         doReset();
         showToast("Venda finalizada!");
-        fireConfetti();
+        const wasFirst = fireConfetti();
+        if (wasFirst) {
+          setTimeout(() => setGraduationOpen(true), 2800);
+        }
       }
     },
     onError: (err: Error) => {
@@ -1869,6 +1874,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         {confirmData && <ConfirmDialog isOpen={!!confirmData} title={confirmData.title} message={confirmData.message} onConfirm={confirmData.action} onCancel={() => setConfirmData(null)} />}
         {discountModalOpen && <DiscountModal isOpen={discountModalOpen} onApply={(val) => { setDesconto(val); setDiscountModalOpen(false); showToast("Desconto aplicado!"); }} onCancel={() => setDiscountModalOpen(false)} />}
       </AnimatePresence>
+
+      {/* ─── GRADUATION MODAL ─── */}
+      <GraduationModal open={graduationOpen} onClose={() => setGraduationOpen(false)} />
 
       {/* ─── SALE DETAIL SHEET ─── */}
       <SaleDetailSheet sale={selectedSale} onClose={() => setSelectedSale(null)} />
