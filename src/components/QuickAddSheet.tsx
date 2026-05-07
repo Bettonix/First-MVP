@@ -18,6 +18,8 @@ interface ProductData {
   categoria: string;
   estoqueAtual: number;
   estoqueInicial: number;
+  estoqueMinimo: number;
+  gerenciarEstoque: boolean;
   isFavorito: boolean;
 }
 
@@ -182,6 +184,8 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
         precoCusto: editProduct.precoCustoCentavos / 100,
         categoria: editProduct.categoria,
         estoqueAtual: editProduct.estoqueAtual,
+        estoqueMinimo: editProduct.estoqueMinimo,
+        gerenciarEstoque: editProduct.gerenciarEstoque,
         isFavorito: editProduct.isFavorito,
       }
     : undefined;

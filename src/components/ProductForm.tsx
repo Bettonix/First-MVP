@@ -2,7 +2,7 @@
 
 import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Star, AlertTriangle } from "lucide-react";
+import { Loader2, Star, AlertTriangle, Package } from "lucide-react";
 import { produtoSchema, ProdutoFormData, CATEGORIAS_PRODUTO } from "@/schemas/produto.schema";
 import { PremiumSelect } from "./PremiumSelect";
 
@@ -18,7 +18,7 @@ const labelClass = "text-[11px] font-black dash-label uppercase tracking-[0.2em]
 const errorClass = "text-[var(--danger)] text-xs font-bold mt-2 ml-1 flex items-center gap-1";
 
 export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }: ProductFormProps) {
-  const { register, control, handleSubmit, formState: { errors } } = useForm<ProdutoFormData>({
+  const { register, control, watch, handleSubmit, formState: { errors } } = useForm<ProdutoFormData>({
     resolver: zodResolver(produtoSchema) as Resolver<ProdutoFormData>,
     defaultValues: {
       nome: defaultValues?.nome || "",
@@ -27,9 +27,12 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
       categoria: defaultValues?.categoria || "Outros",
       isFavorito: defaultValues?.isFavorito ?? true,
       estoqueAtual: defaultValues?.estoqueAtual ?? 0,
+      gerenciarEstoque: defaultValues?.gerenciarEstoque ?? false,
+      estoqueMinimo: defaultValues?.estoqueMinimo ?? 5,
     }
   });
 
+  const gerenciarEstoque = watch("gerenciarEstoque");
   const sanitize = (v: string) => v.replace(/[^0-9.]/g, '');
 
   const onFormSubmit = async (data: ProdutoFormData) => {
@@ -38,6 +41,7 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
       preco: Number(sanitize(String(data.preco))) || 0,
       precoCusto: Number(sanitize(String(data.precoCusto))) || 0,
       estoqueAtual: Number(sanitize(String(data.estoqueAtual))) || 0,
+      estoqueMinimo: Number(sanitize(String(data.estoqueMinimo))) || 5,
     };
     await onSubmit(sanitized);
   };
@@ -63,30 +67,66 @@ export function ProductForm({ onSubmit, isPending, defaultValues, submitLabel }:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
-        <div>
-          <label className={labelClass}>Categoria</label>
-          <Controller
-            name="categoria"
-            control={control}
-            render={({ field }) => (
-              <PremiumSelect
-                options={CATEGORIAS_PRODUTO as unknown as string[]}
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                className={`${inputClass} appearance-none cursor-pointer`}
-              />
-            )}
-          />
-          {errors.categoria && <span className={errorClass}><AlertTriangle size={12}/> {errors.categoria.message}</span>}
-        </div>
-        <div>
-          <label className={labelClass}>Estoque Inicial</label>
-          <input type="number" inputMode="numeric" {...register("estoqueAtual", { valueAsNumber: true })} placeholder="0" className={inputClass} />
-          {errors.estoqueAtual && <span className={errorClass}><AlertTriangle size={12}/> {errors.estoqueAtual.message}</span>}
-        </div>
+      <div>
+        <label className={labelClass}>Categoria</label>
+        <Controller
+          name="categoria"
+          control={control}
+          render={({ field }) => (
+            <PremiumSelect
+              options={CATEGORIAS_PRODUTO as unknown as string[]}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              className={`${inputClass} appearance-none cursor-pointer`}
+            />
+          )}
+        />
+        {errors.categoria && <span className={errorClass}><AlertTriangle size={12}/> {errors.categoria.message}</span>}
       </div>
+
+      {/* Toggle: Controlar Estoque */}
+      <Controller
+        name="gerenciarEstoque"
+        control={control}
+        render={({ field }) => (
+          <label className="flex items-center gap-4 p-4 dash-muted rounded-2xl border dash-border cursor-pointer dash-row-hover transition-all active:scale-[0.99]">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={field.value}
+              onClick={() => field.onChange(!field.value)}
+              className={`relative w-11 h-6 rounded-full transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-[var(--brasa)] focus:ring-offset-2 ${field.value ? 'bg-[var(--brasa)]' : 'bg-[var(--border-md)]'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${field.value ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
+            <div>
+              <span className="text-sm font-black dash-value uppercase tracking-wider flex items-center gap-1.5">
+                <Package size={13} /> Controlar Estoque
+              </span>
+              <span className="text-xs dash-label mt-0.5 block">Deduz automaticamente a cada venda</span>
+            </div>
+          </label>
+        )}
+      />
+
+      {/* Campos de estoque — visíveis apenas quando gerenciarEstoque=true */}
+      {gerenciarEstoque && (
+        <div className="grid grid-cols-2 gap-5">
+          <div>
+            <label className={labelClass}>Estoque Atual</label>
+            <input type="number" inputMode="numeric" {...register("estoqueAtual", { valueAsNumber: true })} placeholder="0" className={inputClass} />
+            {errors.estoqueAtual && <span className={errorClass}><AlertTriangle size={12}/> {errors.estoqueAtual.message}</span>}
+          </div>
+          <div>
+            <label className={labelClass}>Estoque Mínimo (Alerta)</label>
+            <input type="number" inputMode="numeric" {...register("estoqueMinimo", { valueAsNumber: true })} placeholder="5" className={inputClass} />
+            {errors.estoqueMinimo && <span className={errorClass}><AlertTriangle size={12}/> {errors.estoqueMinimo.message}</span>}
+          </div>
+        </div>
+      )}
 
       <label htmlFor="isFavorito" className="flex items-center gap-4 p-4 dash-muted rounded-2xl border dash-border cursor-pointer dash-row-hover transition-all active:scale-[0.99]">
         <input type="checkbox" {...register("isFavorito")} id="isFavorito" className="sr-only peer" />

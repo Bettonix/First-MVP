@@ -29,6 +29,8 @@ export async function createProduto(data: ProdutoFormData) {
         categoria: result.data.categoria || "Outros",
         estoqueAtual: result.data.estoqueAtual,
         estoqueInicial: result.data.estoqueAtual,
+        estoqueMinimo: result.data.estoqueMinimo ?? 5,
+        gerenciarEstoque: result.data.gerenciarEstoque ?? false,
         isFavorito: result.data.isFavorito,
       },
     });
@@ -61,6 +63,8 @@ export async function getProdutosPDV() {
     categoria: p.categoria,
     estoqueAtual: p.estoqueAtual,
     estoqueInicial: p.estoqueInicial,
+    estoqueMinimo: p.estoqueMinimo,
+    gerenciarEstoque: p.gerenciarEstoque,
     isFavorito: p.isFavorito,
     ativo: p.ativo,
   }));
@@ -83,6 +87,8 @@ export async function getProdutosCatalogo() {
     categoria: p.categoria,
     estoqueAtual: p.estoqueAtual,
     estoqueInicial: p.estoqueInicial,
+    estoqueMinimo: p.estoqueMinimo,
+    gerenciarEstoque: p.gerenciarEstoque,
     isFavorito: p.isFavorito,
     ativo: p.ativo,
   }));
@@ -132,6 +138,8 @@ export async function updateProduto(produtoId: string, data: ProdutoFormData) {
     precoCustoCentavos,
     categoria: String(result.data.categoria || "Outros"),
     estoqueAtual,
+    estoqueMinimo: Math.round(result.data.estoqueMinimo ?? 5),
+    gerenciarEstoque: Boolean(result.data.gerenciarEstoque ?? false),
     isFavorito: Boolean(result.data.isFavorito),
   };
 
@@ -194,14 +202,14 @@ export async function depleteStock(items: { produtoId: string; quantidade: numbe
   const tenantId = await getTenantIdOrRedirect();
 
   try {
-    // Batch update stock for all sold items
+    // Decrementa atomicamente apenas produtos com gerenciarEstoque=true
     await prisma.$transaction(
       items.map(item =>
         prisma.produto.updateMany({
-          where: { 
-            id: BigInt(item.produtoId), 
+          where: {
+            id: BigInt(item.produtoId),
             tenantId,
-            estoqueAtual: { gte: item.quantidade } // only if enough stock
+            gerenciarEstoque: true,
           },
           data: {
             estoqueAtual: { decrement: item.quantidade }

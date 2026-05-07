@@ -29,6 +29,8 @@ const MOCK_BOOTSTRAP_DATA = {
       categoria: "Bebidas",
       estoqueAtual: 50,
       estoqueInicial: 100,
+      estoqueMinimo: 5,
+      gerenciarEstoque: false,
       isFavorito: true,
     },
     {
@@ -39,6 +41,8 @@ const MOCK_BOOTSTRAP_DATA = {
       categoria: "Lanches",
       estoqueAtual: 30,
       estoqueInicial: 50,
+      estoqueMinimo: 5,
+      gerenciarEstoque: false,
       isFavorito: true,
     },
   ],
@@ -156,6 +160,8 @@ export async function getPDVBootstrapData() {
       categoria: p.categoria,
       estoqueAtual: p.estoqueAtual,
       estoqueInicial: p.estoqueInicial,
+      estoqueMinimo: p.estoqueMinimo,
+      gerenciarEstoque: p.gerenciarEstoque,
       isFavorito: p.isFavorito,
     })),
   };

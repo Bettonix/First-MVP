@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useCartStore, CartItem } from "@/store/useCartStore";
 import { useTabStore, Comanda } from "@/store/useTabStore";
-import { getProdutosPDV, deleteProduto } from "@/app/actions/produtos";
+import { getProdutosPDV, deleteProduto, depleteStock } from "@/app/actions/produtos";
 import { registrarVenda, getHistoricoVendas, type VendaDetalhe } from "@/app/actions/vendas";
 import { getMesasComComanda, abrirComanda, fecharComanda, type MesaComComanda } from "@/app/actions/comandas";
 import { SaleDetailSheet } from "./SaleDetailSheet";
@@ -44,6 +44,8 @@ interface ProdutoPDV {
   categoria: string;
   estoqueAtual: number;
   estoqueInicial: number;
+  estoqueMinimo: number;
+  gerenciarEstoque: boolean;
   isFavorito: boolean;
 }
 
@@ -313,12 +315,26 @@ function OpenTime({ createdAt }: { createdAt: number }) {
 
 // ─── Product Card (memoized — prevents re-render on cart changes) ─
 interface ProductCardProps {
-  produto: { id: string; nome: string; precoCentavos: number; estoqueAtual: number };
+  produto: { id: string; nome: string; precoCentavos: number; estoqueAtual: number; estoqueMinimo: number; gerenciarEstoque: boolean };
   fmt: (c: number) => string;
   onAdd: (id: string, nome: string, preco: number) => void;
 }
 const ProductCard = memo(function ProductCard({ produto: p, fmt, onAdd }: ProductCardProps) {
-  const isEsgotado = p.estoqueAtual <= 0;
+  const isEsgotado = p.gerenciarEstoque && p.estoqueAtual <= 0;
+  const isLowStock = p.gerenciarEstoque && p.estoqueAtual > 0 && p.estoqueAtual <= p.estoqueMinimo;
+
+  let cardBorder = 'dash-border hover:border-[var(--brasa-border)] active:scale-95';
+  if (isEsgotado) cardBorder = 'opacity-40 grayscale pointer-events-none dash-border';
+  else if (isLowStock) cardBorder = 'border-amber-400/50 hover:border-amber-400 active:scale-95';
+
+  let iconBorder = 'dash-border group-hover:scale-105 group-hover:border-[var(--brasa-border)]';
+  if (isEsgotado) iconBorder = 'dash-border';
+  else if (isLowStock) iconBorder = 'border-amber-400/40 group-hover:scale-105';
+
+  let iconColor = 'dash-label';
+  if (isEsgotado) iconColor = 'dash-subtitle';
+  else if (isLowStock) iconColor = 'text-amber-500';
+
   return (
     <motion.button
       key={p.id}
@@ -326,16 +342,26 @@ const ProductCard = memo(function ProductCard({ produto: p, fmt, onAdd }: Produc
       onClick={() => onAdd(p.id, p.nome, p.precoCentavos)}
       whileTap={isEsgotado ? {} : { scale: 0.93 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
-      className={`dash-card border dash-border p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-colors relative overflow-hidden group shadow-xl min-h-[120px] ${isEsgotado ? 'opacity-40 grayscale pointer-events-none' : 'hover:border-[var(--brasa-border)] active:scale-95'}`}
+      className={`dash-card border p-4 rounded-3xl flex flex-col items-center text-center gap-3 transition-colors relative overflow-hidden group shadow-xl min-h-[120px] ${cardBorder}`}
     >
       {/* Ícone maior — Fitts */}
-      <div className={`w-14 h-14 rounded-2xl dash-muted border-2 dash-border flex items-center justify-center transition-transform ${!isEsgotado && 'group-hover:scale-105 group-hover:border-[var(--brasa-border)]'}`}>
-        <Package size={26} className={isEsgotado ? 'dash-subtitle' : 'dash-label'} />
+      <div className={`w-14 h-14 rounded-2xl dash-muted border-2 flex items-center justify-center transition-transform ${iconBorder}`}>
+        <Package size={26} className={iconColor} />
       </div>
       <div className="w-full">
         <p className={`font-black text-sm leading-tight transition-colors line-clamp-2 ${!isEsgotado && 'group-hover:dash-highlight-text'}`}>{p.nome}</p>
         <p className={`font-bold mt-1 text-sm tabular-nums ${isEsgotado ? 'dash-label' : 'dash-highlight-text'}`}>{fmt(p.precoCentavos)}</p>
       </div>
+
+      {/* Badge de estoque — só quando gerenciarEstoque=true */}
+      {p.gerenciarEstoque && !isEsgotado && (
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+          isLowStock ? 'bg-amber-400/15 text-amber-600' : 'bg-[var(--border)] dash-label'
+        }`}>
+          {isLowStock ? '⚠️' : '📦'} {p.estoqueAtual} un.
+        </div>
+      )}
+
       {isEsgotado && (
         <div className="absolute inset-0 bg-[var(--parchment)]/80 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
           <span className="bg-rose-500 text-white text-[10px] font-black px-4 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-rose-500/20 rotate-[-8deg]">
@@ -604,7 +630,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
   const handleAddProduct = useCallback((id: string, nome: string, preco: number) => {
     // Optimistic UI — atualiza estoque local imediatamente (Step 3)
-    addOptimisticProduto({ type: 'update', payload: { id, nome, precoCentavos: safeCentavos(preco), precoCustoCentavos: 0, categoria: '', estoqueAtual: Math.max(0, (produtos.find(p => String(p.id) === id)?.estoqueAtual ?? 1) - 1), estoqueInicial: 0, isFavorito: false } });
+    addOptimisticProduto({ type: 'update', payload: { id, nome, precoCentavos: safeCentavos(preco), precoCustoCentavos: 0, categoria: '', estoqueAtual: Math.max(0, (produtos.find(p => String(p.id) === id)?.estoqueAtual ?? 1) - 1), estoqueInicial: 0, estoqueMinimo: 0, gerenciarEstoque: false, isFavorito: false } });
     addItem({ produtoId: id, nome, precoCentavos: safeCentavos(preco) });
     setCartOpen(true);
   }, [addItem, addOptimisticProduto, produtos]);
@@ -871,10 +897,13 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         if (!old) return old;
         return old.map(p => {
           const sold = soldItems.find(i => i.produtoId === p.id);
-          if (!sold) return p;
+          if (!sold || !p.gerenciarEstoque) return p;
           return { ...p, estoqueAtual: Math.max(0, p.estoqueAtual - sold.quantidade) };
         });
       });
+
+      // Persiste decremento atômico no banco (apenas produtos com gerenciarEstoque=true)
+      depleteStock(soldItems.map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade })));
 
       if (activeComandaId) closeComanda(activeComandaId);
       resetMesaSelector();
@@ -1151,7 +1180,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                       .map((p) => (
                         <ProductCard
                           key={p.id}
-                          produto={{ id: String(p.id), nome: p.nome, precoCentavos: p.precoCentavos, estoqueAtual: p.estoqueAtual }}
+                          produto={{ id: String(p.id), nome: p.nome, precoCentavos: p.precoCentavos, estoqueAtual: p.estoqueAtual, estoqueMinimo: p.estoqueMinimo, gerenciarEstoque: p.gerenciarEstoque }}
                           fmt={fmt}
                           onAdd={handleAddProduct}
                         />
