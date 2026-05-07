@@ -1,5 +1,5 @@
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 generator client {
@@ -11,44 +11,44 @@ generator client {
 /// Populado automaticamente pela trigger `handle_new_user` no Supabase.
 /// `vendedorId` é nulo para o gerente (dono) e preenchido para operadores.
 model Profile {
-  id         String   @id              // auth.users.id (UUID)
+  id         String   @id // auth.users.id (UUID)
   email      String   @unique
   name       String?
   avatarUrl  String?  @map("avatar_url")
   role       String   @default("GERENTE") // GERENTE | OPERADOR
   vendedorId String?  @map("vendedor_id") // null = é o próprio gerente; preenchido = operador vinculado
-  createdAt  DateTime @default(now())  @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
-  vendedor   Vendedor? @relation(fields: [vendedorId], references: [id], onDelete: Cascade)
+  vendedor Vendedor? @relation(fields: [vendedorId], references: [id], onDelete: Cascade)
 
   @@index([vendedorId])
   @@map("profiles")
 }
 
 model Vendedor {
-  id                String   @id @default(cuid()) @map("tenant_id") // Atua como Tenant ID
-  authId            String   @unique // ID gerado pelo Supabase Auth (= Profile.id)
-  nomeLoja          String
-  nicho             String   @default("outros")
-  metodosPagamento  String[] @default([])
-  criadoEm          DateTime @default(now())
-  pinGerente        String?  @map("pin_gerente")
-  instagramUrl      String?  @map("instagram_url")
+  id               String   @id @default(cuid()) @map("tenant_id") // Atua como Tenant ID
+  authId           String   @unique // ID gerado pelo Supabase Auth (= Profile.id)
+  nomeLoja         String
+  nicho            String   @default("outros")
+  metodosPagamento String[] @default([])
+  criadoEm         DateTime @default(now())
+  pinGerente       String?  @map("pin_gerente")
+  instagramUrl     String?  @map("instagram_url")
 
-  operadores        Profile[]
+  operadores Profile[]
 
   @@index([authId])
 }
 
 /// Mesa configurada pelo tenant. Cada mesa pode ter N comandas (histórico), mas apenas UMA ABERTA por vez.
 model Mesa {
-  id        BigInt    @id @default(autoincrement())
-  tenantId  String    @map("tenant_id")
-  nome      String
-  ativa     Boolean   @default(true)
-  criadoEm DateTime   @default(now()) @map("criado_em")
+  id       BigInt   @id @default(autoincrement())
+  tenantId String   @map("tenant_id")
+  nome     String
+  ativa    Boolean  @default(true)
+  criadoEm DateTime @default(now()) @map("criado_em")
 
-  comandas  Comanda[]
+  comandas Comanda[]
 
   @@index([tenantId])
 }
@@ -60,12 +60,12 @@ model Comanda {
   tenantId      String    @map("tenant_id")
   mesaId        BigInt    @map("mesa_id")
   mesa          Mesa      @relation(fields: [mesaId], references: [id], onDelete: Cascade)
-  name          String?                              // Label opcional (ex: "João", "Cliente 2")
-  status        String    @default("ABERTA")         // ABERTA | FECHADA
-  totalCentavos Int       @default(0)                @map("total_centavos")
+  name          String? // Label opcional (ex: "João", "Cliente 2")
+  status        String    @default("ABERTA") // ABERTA | FECHADA
+  totalCentavos Int       @default(0) @map("total_centavos")
   itens         Json?
-  abertaEm      DateTime  @default(now())            @map("aberta_em")
-  fechadaEm     DateTime?                            @map("fechada_em")
+  abertaEm      DateTime  @default(now()) @map("aberta_em")
+  fechadaEm     DateTime? @map("fechada_em")
 
   @@index([tenantId, status])
   @@index([mesaId])
@@ -76,25 +76,25 @@ model Turno {
   tenantId             String    @map("tenant_id")
   status               String    @default("ABERTO") // ABERTO, FECHADO
   valorInicialCentavos Int       @default(0)
-  valorFinalCentavos   Int?      // Preenchido apenas no fechamento
+  valorFinalCentavos   Int? // Preenchido apenas no fechamento
   abertoEm             DateTime  @default(now())
   fechadoEm            DateTime?
-  
-  vendas               Venda[]
-  movimentacoes        MovimentacaoFinanceira[]
 
-  @@index([tenantId, status]) 
+  vendas        Venda[]
+  movimentacoes MovimentacaoFinanceira[]
+
+  @@index([tenantId, status])
 }
 
 model MovimentacaoFinanceira {
-  id              BigInt   @id @default(autoincrement())
-  tenantId        String   @map("tenant_id")
-  turnoId         BigInt
-  turno           Turno    @relation(fields: [turnoId], references: [id])
-  tipo            String   // 'ENTRADA' (Reforço), 'SAIDA' (Sangria)
-  valorCentavos   Int
-  motivo          String
-  criadoEm        DateTime @default(now())
+  id            BigInt   @id @default(autoincrement())
+  tenantId      String   @map("tenant_id")
+  turnoId       BigInt
+  turno         Turno    @relation(fields: [turnoId], references: [id])
+  tipo          String // 'ENTRADA' (Reforço), 'SAIDA' (Sangria)
+  valorCentavos Int
+  motivo        String
+  criadoEm      DateTime @default(now())
 
   @@index([tenantId, turnoId])
 }
@@ -108,17 +108,17 @@ model Produto {
   categoria           String    @default("Outros")
   estoqueAtual        Int       @default(0)
   estoqueInicial      Int       @default(0)
-  estoqueMinimo       Int       @default(0)      @map("estoque_minimo")
-  gerenciarEstoque    Boolean   @default(true)   @map("gerenciar_estoque")
+  estoqueMinimo       Int       @default(0) @map("estoque_minimo")
+  gerenciarEstoque    Boolean   @default(false) @map("gerenciar_estoque")
   isFavorito          Boolean   @default(true)
   ativo               Boolean   @default(true)
   /// Marcado true quando uma venda offline resulta em estoqueAtual < 0.
   /// O gerente deve reconciliar manualmente via ajuste de estoque.
-  needsReconciliation Boolean   @default(false)  @map("needs_reconciliation")
+  needsReconciliation Boolean   @default(false) @map("needs_reconciliation")
   /// Timestamp da última inconsistência detectada (sync offline).
   lastInconsistency   DateTime? @map("last_inconsistency")
 
-  movimentacoes       MovimentacaoEstoque[]
+  movimentacoes MovimentacaoEstoque[]
 
   @@index([tenantId, isFavorito])
   @@index([tenantId, ativo])
@@ -127,34 +127,34 @@ model Produto {
 
 /// Histórico de auditoria de estoque (ENTRADA, SAIDA, AJUSTE).
 model MovimentacaoEstoque {
-  id                  BigInt   @id @default(autoincrement())
-  tenantId            String   @map("tenant_id")
-  produtoId           BigInt   @map("produto_id")
-  produto             Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
-  tipo                String   // ENTRADA | SAIDA | AJUSTE
-  quantidade          Int
-  quantidadeAnterior  Int      @map("quantidade_anterior")
-  motivo              String   @default("")
-  criadoEm            DateTime @default(now()) @map("criado_em")
+  id                 BigInt   @id @default(autoincrement())
+  tenantId           String   @map("tenant_id")
+  produtoId          BigInt   @map("produto_id")
+  produto            Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  tipo               String // ENTRADA | SAIDA | AJUSTE
+  quantidade         Int
+  quantidadeAnterior Int      @map("quantidade_anterior")
+  motivo             String   @default("")
+  criadoEm           DateTime @default(now()) @map("criado_em")
 
   @@index([tenantId, produtoId])
 }
 
 model Venda {
-  id              BigInt      @id @default(autoincrement())
-  tenantId        String      @map("tenant_id")
-  turnoId         BigInt
-  turno           Turno       @relation(fields: [turnoId], references: [id])
+  id       BigInt @id @default(autoincrement())
+  tenantId String @map("tenant_id")
+  turnoId  BigInt
+  turno    Turno  @relation(fields: [turnoId], references: [id])
 
-  totalCentavos   Int
+  totalCentavos Int
   /// Resumo do método principal (PIX | DINHEIRO | CARTAO | MISTO) — mantido para compatibilidade com analytics
-  metodoPagto     String
-  pixId           String?
+  metodoPagto   String
+  pixId         String?
 
-  itens           Json
-  pagamentos      Pagamento[]
+  itens      Json
+  pagamentos Pagamento[]
 
-  criadoEm        DateTime  @default(now())
+  criadoEm DateTime @default(now())
 
   @@index([tenantId, turnoId, criadoEm])
   @@index([tenantId, metodoPagto])
@@ -167,7 +167,7 @@ model Pagamento {
   id            BigInt   @id @default(autoincrement())
   vendaId       BigInt   @map("venda_id")
   venda         Venda    @relation(fields: [vendaId], references: [id], onDelete: Cascade)
-  metodo        String   // PIX | DINHEIRO | CARTAO_CREDITO | CARTAO_DEBITO
+  metodo        String // PIX | DINHEIRO | CARTAO_CREDITO | CARTAO_DEBITO
   valorCentavos Int      @map("valor_centavos")
   criadoEm      DateTime @default(now()) @map("criado_em")
 

@@ -168,7 +168,6 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
 
   const handleFormSubmit = async (data: ProdutoFormData) => {
     if (editProduct) {
-      console.log("📤 Enviando atualização para ID:", editProduct.id);
       updateMutation.mutate({ id: editProduct.id, data });
     } else {
       createMutation.mutate(data);
