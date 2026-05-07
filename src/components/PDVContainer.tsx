@@ -22,6 +22,7 @@ import { QuickAddSheet, DeleteConfirmModal } from "./QuickAddSheet";
 import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
+import { SetupChecklist } from "./SetupChecklist";
 import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo } from "react";
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
@@ -1094,7 +1095,14 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           <AnimatePresence mode="wait">
             {activeView === "VENDA" && (
               <motion.div key="venda" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="h-full flex flex-col">
-                
+
+                {/* Checklist de ativação — exibido apenas no primeiro acesso */}
+                {showWelcome && (
+                  <div className="mb-6">
+                    <SetupChecklist />
+                  </div>
+                )}
+
                 {/* Busca e Filtros */}
                 <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
                   <div className="relative flex-1">
