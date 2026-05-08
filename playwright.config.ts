@@ -20,16 +20,22 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
       testMatch: "**/*.spec.ts",
     },
-    // ── Mobile — apenas testes de responsividade ─────────────────────────────
+    // ── Mobile — responsividade + testes mobile específicos ──────────────────
     {
       name: "iphone-14",
       use: { ...devices["iPhone 14"] },
-      testMatch: "**/responsive-ui.spec.ts",
+      testMatch: ["**/responsive-ui.spec.ts", "**/mobile.spec.ts"],
     },
     {
       name: "pixel-5",
       use: { ...devices["Pixel 5"] },
-      testMatch: "**/responsive-ui.spec.ts",
+      testMatch: ["**/responsive-ui.spec.ts", "**/mobile.spec.ts"],
+    },
+    // ── iPhone SE (320px) — testa o menor viewport suportado ─────────────────
+    {
+      name: "iphone-se",
+      use: { ...devices["iPhone SE"] },
+      testMatch: "**/mobile.spec.ts",
     },
   ],
   // Não inicia o servidor automaticamente — assume `next dev` rodando

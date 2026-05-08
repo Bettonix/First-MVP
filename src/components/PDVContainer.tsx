@@ -1340,12 +1340,12 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                    <div className="dash-card border border-[var(--brasa-border)] rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 dash-icon-accent rounded-full blur-2xl group-hover:bg-[var(--brasa-hover)]/20 transition-all"/>
                       <h3 className="dash-highlight-text font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><DollarSign size={14}/> Vendas Hoje</h3>
-                      <p className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter">{fmt(insights?.totalHojeCentavos || 0)}</p>
+                      <p className="text-2xl sm:text-3xl md:text-4xl font-black dash-highlight-text tabular-nums tracking-tighter truncate">{fmt(insights?.totalHojeCentavos || 0)}</p>
                    </div>
                    <div className="dash-card border border-blue-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 dash-muted rounded-full blur-2xl group-hover:bg-[var(--muted)] transition-all"/>
                       <h3 className="dash-label font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"><Hash size={14}/> Total de Pedidos</h3>
-                      <p className="text-4xl font-black dash-value tabular-nums tracking-tighter">{insights?.qtdHoje || 0}</p>
+                      <p className="text-2xl sm:text-3xl md:text-4xl font-black dash-value tabular-nums tracking-tighter">{insights?.qtdHoje || 0}</p>
                    </div>
                    <div className="dash-card border border-purple-500/20 rounded-3xl p-6 relative overflow-hidden group">
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"/>
@@ -1353,7 +1353,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                         <TrendingUp size={14}/> Ticket Médio
                         <InfoTooltip text="Valor médio por venda hoje. Calculado como: total de vendas ÷ número de pedidos." position="bottom" />
                       </h3>
-                      <p className="text-4xl font-black text-purple-400 tabular-nums tracking-tighter">{fmt(insights?.ticketMedioCentavos || 0)}</p>
+                      <p className="text-2xl sm:text-3xl md:text-4xl font-black text-purple-400 tabular-nums tracking-tighter truncate">{fmt(insights?.ticketMedioCentavos || 0)}</p>
                    </div>
                 </div>
               </motion.div>
@@ -1668,7 +1668,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           </div>
         </div>
 
-        <footer className="p-6 pb-10 md:pb-6 bg-[var(--porcelana)] border-t dash-border space-y-4 relative z-10 shrink-0">
+        <footer className="p-4 md:p-6 pb-10 md:pb-6 bg-[var(--porcelana)] border-t dash-border space-y-3 md:space-y-4 relative z-10 shrink-0">
           <div className="flex flex-col gap-1">
             
             <div className="flex items-center justify-between dash-muted p-4 rounded-3xl border dash-border shadow-inner">
@@ -1692,9 +1692,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                   )}
                 </button>
               </div>
-              <div className="flex flex-col items-end">
+              <div className="flex flex-col items-end min-w-0">
                 {descontoCentavos > 0 && <span data-testid="subtotal-riscado" className="text-[10px] dash-subtitle line-through tabular-nums font-bold leading-none mb-1">{fmt(subtotal)}</span>}
-                <span data-testid="total-grande" className="text-4xl font-black dash-highlight-text tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+                <span data-testid="total-grande" className="text-2xl sm:text-3xl md:text-4xl font-black dash-highlight-text tabular-nums tracking-tighter leading-none drop-shadow-[0_0_15px_rgba(52,211,153,0.15)] truncate max-w-[160px] sm:max-w-none">
                   {isMounted ? fmt(total) : 'R$ 0,00'}
                 </span>
               </div>

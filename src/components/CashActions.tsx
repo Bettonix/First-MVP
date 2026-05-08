@@ -15,8 +15,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
 
   const [valor, setValor] = useState("");
   const [motivo, setMotivo] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const fmt = (cents: number | null | undefined) => fmtBRL(safeCentavos(cents));
@@ -39,42 +38,43 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
 
-    try {
-      const v = Number(valor);
+    startTransition(async () => {
+      try {
+        const v = Number(valor);
 
-      if (modalType === 'ABRIR') {
-        const res = await abrirTurno({ valorInicial: v });
-        if (!res.success) onMessage?.(res.error || "Erro ao abrir turno", 'error');
-        else onMessage?.("Turno aberto com sucesso!", 'success');
-      } else if (modalType === 'FECHAR') {
-        const res = await fecharTurno({ valorFinalInformado: v });
-        if (res.success && res.relatorio) {
-          onMessage?.(`Turno Fechado! Esperado: R$ ${res.relatorio.esperado.toFixed(2)} | Informado: R$ ${res.relatorio.informado.toFixed(2)}`, 'success');
-        } else {
-          onMessage?.(res.error || "Erro ao fechar turno", 'error');
+        if (modalType === 'ABRIR') {
+          const res = await abrirTurno({ valorInicial: v });
+          if (!res.success) onMessage?.(res.error || "Erro ao abrir turno", 'error');
+          else onMessage?.("Turno aberto com sucesso!", 'success');
+        } else if (modalType === 'FECHAR') {
+          const res = await fecharTurno({ valorFinalInformado: v });
+          if (res.success && res.relatorio) {
+            onMessage?.(`Turno Fechado! Esperado: R$ ${res.relatorio.esperado.toFixed(2)} | Informado: R$ ${res.relatorio.informado.toFixed(2)}`, 'success');
+          } else {
+            onMessage?.(res.error || "Erro ao fechar turno", 'error');
+          }
+        } else if (modalType === 'SANGRIA') {
+          const res = await registrarMovimentacao({ tipo: 'SAIDA', valor: v, motivo });
+          if (!res.success) onMessage?.(res.error || "Erro na sangria", 'error');
+          else onMessage?.("Sangria registrada!", 'success');
+        } else if (modalType === 'REFORCO') {
+          const res = await registrarMovimentacao({ tipo: 'ENTRADA', valor: v, motivo });
+          if (!res.success) onMessage?.(res.error || "Erro no reforço", 'error');
+          else onMessage?.("Reforço registrado!", 'success');
         }
-      } else if (modalType === 'SANGRIA') {
-        const res = await registrarMovimentacao({ tipo: 'SAIDA', valor: v, motivo });
-        if (!res.success) onMessage?.(res.error || "Erro na sangria", 'error');
-        else onMessage?.("Sangria registrada!", 'success');
-      } else if (modalType === 'REFORCO') {
-        const res = await registrarMovimentacao({ tipo: 'ENTRADA', valor: v, motivo });
-        if (!res.success) onMessage?.(res.error || "Erro no reforço", 'error');
-        else onMessage?.("Reforço registrado!", 'success');
-      }
 
-      if (modalType === 'ABRIR' || modalType === 'FECHAR') {
-        startTransition(() => router.refresh());
-      }
+        if (modalType === 'ABRIR' || modalType === 'FECHAR') {
+          router.refresh();
+        }
 
-      setModalType(null);
-      setValor("");
-      setMotivo("");
-    } finally {
-      setLoading(false);
-    }
+        setModalType(null);
+        setValor("");
+        setMotivo("");
+      } catch {
+        onMessage?.("Erro inesperado. Tente novamente.", 'error');
+      }
+    });
   };
 
   const modalTitles: Record<string, string> = {
@@ -247,10 +247,10 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={isPending}
                 className="w-full h-12 mt-1 bg-[var(--brasa)] hover:bg-[var(--brasa-hover)] disabled:opacity-40 text-white font-bold text-sm rounded-xl flex justify-center items-center gap-2 transition-all duration-150 active:scale-[0.98]"
               >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : 'CONFIRMAR'}
+                {isPending ? <Loader2 size={18} className="animate-spin" /> : 'CONFIRMAR'}
               </button>
             </form>
           </div>

@@ -23,7 +23,10 @@
       "Bash(xargs cat)",
       "Bash(npm install *)",
       "Bash(rm /Projetos/First-MVP/tests/debug-offline.spec.ts)",
-      "Bash(PLAYWRIGHT_TEST_BYPASS=1 rtk playwright test tests/pdv-integration.spec.ts --reporter=list)"
+      "Bash(PLAYWRIGHT_TEST_BYPASS=1 rtk playwright test tests/pdv-integration.spec.ts --reporter=list)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(PLAYWRIGHT_TEST_BYPASS=1 PLAYWRIGHT_TEST_TENANT_ID=test-tenant-id rtk playwright *)"
     ]
   }
 }
