@@ -64,7 +64,7 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl dash-action-btn flex items-center justify-center transition-colors"
+            className="w-11 h-11 rounded-xl dash-action-btn flex items-center justify-center transition-colors"
           >
             <X size={18} />
           </button>

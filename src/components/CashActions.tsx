@@ -168,7 +168,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
           onClick={() => setModalType(null)}
         >
           <div
-            className="dash-card w-full lg:w-[420px] rounded-t-3xl lg:rounded-3xl p-6 pb-8 shadow-2xl"
+            className="dash-card w-full lg:w-[420px] rounded-t-3xl lg:rounded-3xl p-6 pb-8 shadow-2xl max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag Handle (Mobile) */}

@@ -1744,7 +1744,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                   key={m.value}
                   data-testid={`btn-metodo-${m.value.toLowerCase()}`}
                   onClick={() => addSplitPagamento(m.value)}
-                  className="flex flex-col items-center justify-center py-3 rounded-2xl border transition-all duration-150 dash-border dash-muted dash-label hover:border-[var(--brasa-border)] hover:dash-value active:scale-95"
+                  className="flex flex-col items-center justify-center min-h-[44px] py-2 rounded-2xl border transition-all duration-150 dash-border dash-muted dash-label hover:border-[var(--brasa-border)] hover:dash-value active:scale-95"
                 >
                   <m.icon size={18}/>
                   <span className="text-[8px] font-black mt-1 uppercase tracking-[0.08em]">{m.label}</span>

@@ -51,7 +51,7 @@ export function GraduationModal({ open, onClose }: GraduationModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 8 }}
             transition={{ type: "spring", stiffness: 320, damping: 28, delay: 0.05 }}
-            className="w-full max-w-md rounded-3xl border overflow-hidden"
+            className="w-full max-w-md rounded-3xl border overflow-hidden max-h-[90dvh] overflow-y-auto"
             style={{
               backgroundColor: "var(--porcelana)",
               borderColor: "var(--border-md)",

@@ -223,7 +223,7 @@ export function QuickAddSheet({ editProduct, isOpen: externalIsOpen, onClose, on
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="dash-card w-full max-w-lg p-8 rounded-[32px] border dash-border relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90vh] overflow-y-auto"
+              className="dash-card w-full max-w-lg p-5 sm:p-8 rounded-[32px] border dash-border relative shadow-[0_0_80px_rgba(0,0,0,0.5)] max-h-[90dvh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-8">
                 <div className="flex flex-col">

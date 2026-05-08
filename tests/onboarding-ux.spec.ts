@@ -204,7 +204,7 @@ test.describe("Setup Checklist", () => {
     await page.getByRole("button", { name: "Fechar checklist" }).click();
     await page.waitForTimeout(400);
 
-    await expect(page.getByTestId("setup-checklist")).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId("setup-checklist")).not.toBeAttached({ timeout: 5_000 });
 
     await ctx.close();
   });
