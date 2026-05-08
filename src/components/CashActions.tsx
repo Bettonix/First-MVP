@@ -36,38 +36,34 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
     setModalType(type);
   };
 
+  const executarAcao = async (tipo: NonNullable<typeof modalType>, v: number) => {
+    if (tipo === 'ABRIR') {
+      const res = await abrirTurno({ valorInicial: v });
+      onMessage?.(res.success ? "Turno aberto com sucesso!" : (res.error || "Erro ao abrir turno"), res.success ? 'success' : 'error');
+    } else if (tipo === 'FECHAR') {
+      const res = await fecharTurno({ valorFinalInformado: v });
+      if (res.success && res.relatorio) {
+        onMessage?.(`Turno Fechado! Esperado: R$ ${res.relatorio.esperado.toFixed(2)} | Informado: R$ ${res.relatorio.informado.toFixed(2)}`, 'success');
+      } else {
+        onMessage?.(res.error || "Erro ao fechar turno", 'error');
+      }
+    } else if (tipo === 'SANGRIA') {
+      const res = await registrarMovimentacao({ tipo: 'SAIDA', valor: v, motivo });
+      onMessage?.(res.success ? "Sangria registrada!" : (res.error || "Erro na sangria"), res.success ? 'success' : 'error');
+    } else {
+      const res = await registrarMovimentacao({ tipo: 'ENTRADA', valor: v, motivo });
+      onMessage?.(res.success ? "Reforço registrado!" : (res.error || "Erro no reforço"), res.success ? 'success' : 'error');
+    }
+  };
+
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!modalType) return;
 
     startTransition(async () => {
       try {
-        const v = Number(valor);
-
-        if (modalType === 'ABRIR') {
-          const res = await abrirTurno({ valorInicial: v });
-          if (!res.success) onMessage?.(res.error || "Erro ao abrir turno", 'error');
-          else onMessage?.("Turno aberto com sucesso!", 'success');
-        } else if (modalType === 'FECHAR') {
-          const res = await fecharTurno({ valorFinalInformado: v });
-          if (res.success && res.relatorio) {
-            onMessage?.(`Turno Fechado! Esperado: R$ ${res.relatorio.esperado.toFixed(2)} | Informado: R$ ${res.relatorio.informado.toFixed(2)}`, 'success');
-          } else {
-            onMessage?.(res.error || "Erro ao fechar turno", 'error');
-          }
-        } else if (modalType === 'SANGRIA') {
-          const res = await registrarMovimentacao({ tipo: 'SAIDA', valor: v, motivo });
-          if (!res.success) onMessage?.(res.error || "Erro na sangria", 'error');
-          else onMessage?.("Sangria registrada!", 'success');
-        } else if (modalType === 'REFORCO') {
-          const res = await registrarMovimentacao({ tipo: 'ENTRADA', valor: v, motivo });
-          if (!res.success) onMessage?.(res.error || "Erro no reforço", 'error');
-          else onMessage?.("Reforço registrado!", 'success');
-        }
-
-        if (modalType === 'ABRIR' || modalType === 'FECHAR') {
-          router.refresh();
-        }
-
+        await executarAcao(modalType, Number(valor));
+        if (modalType === 'ABRIR' || modalType === 'FECHAR') router.refresh();
         setModalType(null);
         setValor("");
         setMotivo("");
@@ -107,7 +103,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
           aria-label="Ações do caixa"
           aria-expanded={menuOpen}
           className={`
-            p-2.5 rounded-xl transition-colors duration-150
+            min-w-[44px] min-h-[44px] p-2.5 rounded-xl transition-colors duration-150 flex items-center justify-center
             ${menuOpen
               ? 'dash-pill-active'
               : 'dash-pill-inactive hover:dash-value'

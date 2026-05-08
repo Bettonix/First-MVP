@@ -35,7 +35,13 @@ export default defineConfig({
     {
       name: "iphone-se",
       use: { ...devices["iPhone SE"] },
-      testMatch: "**/mobile.spec.ts",
+      testMatch: ["**/mobile.spec.ts", "**/mobile-ux.spec.ts"],
+    },
+    // ── Mobile UX — testes de interação profunda (375px fixo via test.use) ────
+    {
+      name: "mobile-ux",
+      use: { ...devices["iPhone SE"], hasTouch: true },
+      testMatch: "**/mobile-ux.spec.ts",
     },
   ],
   // Não inicia o servidor automaticamente — assume `next dev` rodando
