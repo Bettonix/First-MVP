@@ -43,24 +43,26 @@ export function GraduationModal({ open, onClose }: GraduationModalProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-sm bg-black/40"
+          className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center sm:p-4 backdrop-blur-sm bg-black/40"
           onClick={(e) => e.target === e.currentTarget && graduate(false)}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 8 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28, delay: 0.05 }}
-            className="w-full max-w-md rounded-3xl border overflow-hidden max-h-[90dvh] overflow-y-auto"
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "100%", opacity: 0 }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}
+            className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border overflow-hidden max-h-[90dvh] overflow-y-auto"
             style={{
               backgroundColor: "var(--porcelana)",
               borderColor: "var(--border-md)",
               boxShadow: "0 32px 80px rgba(45,45,45,0.18), 0 0 0 1px rgba(255,255,255,0.6) inset",
             }}
           >
+            {/* Drag handle (mobile only) */}
+            <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-0 sm:hidden" style={{ backgroundColor: "var(--border-md)" }} />
             {/* Header com gradiente */}
             <div
-              className="px-8 pt-8 pb-6 text-center"
+              className="px-8 pt-6 sm:pt-8 pb-6 text-center"
               style={{
                 background: "linear-gradient(160deg, var(--brasa-light) 0%, var(--porcelana) 60%)",
               }}

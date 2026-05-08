@@ -12,6 +12,7 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
   const [modalType, setModalType] = useState<'ABRIR' | 'FECHAR' | 'SANGRIA' | 'REFORCO' | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const valorInputRef = useRef<HTMLInputElement>(null);
 
   const [valor, setValor] = useState("");
   const [motivo, setMotivo] = useState("");
@@ -35,6 +36,12 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
     setMenuOpen(false);
     setModalType(type);
   };
+
+  useEffect(() => {
+    if (!modalType) return;
+    const t = setTimeout(() => valorInputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, [modalType]);
 
   const executarAcao = async (tipo: NonNullable<typeof modalType>, v: number) => {
     if (tipo === 'ABRIR') {
@@ -213,10 +220,10 @@ export function CashActions({ isTurnoAberto, insights, onMessage }: { isTurnoAbe
                   <InfoTooltip text={modalTooltips[modalType]} position="right" />
                 </label>
                 <input
+                  ref={valorInputRef}
                   type="number"
                   step="0.01"
                   inputMode="decimal"
-                  autoFocus
                   required
                   value={valor}
                   onChange={(e) => setValor(e.target.value)}

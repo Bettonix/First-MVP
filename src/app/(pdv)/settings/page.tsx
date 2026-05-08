@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useCallback } from "react";
+import { useState, useTransition, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   getEstoqueSettings, updateEstoque, entradaEstoque,
@@ -60,14 +60,20 @@ function StockLevelBar({ atual, minimo, gerenciar }: { atual: number; minimo: nu
 function EditableNumber({ value, onSave }: { value: number; onSave: (v: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(String(value));
+  const editRef = useRef<HTMLInputElement>(null);
   useEffect(() => { setDraft(String(value)); }, [value]);
+  useEffect(() => {
+    if (!editing) return;
+    const t = setTimeout(() => editRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [editing]);
   const commit = () => {
     const n = Math.max(0, parseInt(draft, 10) || 0);
     setEditing(false);
     if (n !== value) onSave(n);
   };
   if (editing) return (
-    <input autoFocus type="number" min={0} value={draft}
+    <input ref={editRef} type="number" min={0} value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setEditing(false); setDraft(String(value)); } }}
@@ -250,9 +256,10 @@ function DeleteConfirm({ product, onClose, onDeleted }: { product: ProdutoSettin
     startTransition(async () => { await excluirProduto(product.id); onDeleted(); onClose(); });
   };
   const content = (
-    <div className="fixed inset-0 z-[9100] flex items-center justify-center p-4" style={{ isolation: "isolate" }}>
+    <div className="fixed inset-0 z-[9100] flex items-end sm:items-center justify-center sm:p-4" style={{ isolation: "isolate" }}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative dash-card rounded-2xl p-6 max-w-sm w-full shadow-2xl z-10">
+      <div className="relative dash-card rounded-t-3xl sm:rounded-2xl px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6 max-w-sm w-full shadow-2xl z-10">
+        <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ backgroundColor: "var(--border-md)" }} />
         <div className="w-12 h-12 bg-rose-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Trash2 size={22} className="text-rose-400" />
         </div>
@@ -506,7 +513,7 @@ function EstoqueTab() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 font-bold text-sm
+        <div className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 font-bold text-sm
           ${toast.ok ? "dash-icon-accent dash-border dash-highlight-text" : "bg-rose-500/10 border-rose-500/20 text-rose-400"}`}>
           {toast.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}{toast.msg}
         </div>
@@ -1044,7 +1051,7 @@ function EquipeTab() {
       </div>
 
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 font-bold text-sm
+        <div className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 font-bold text-sm
           ${toast.ok ? "dash-icon-accent dash-border dash-highlight-text" : "bg-rose-500/10 border-rose-500/20 text-rose-400"}`}>
           {toast.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}{toast.msg}
         </div>

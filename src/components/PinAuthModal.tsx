@@ -82,7 +82,7 @@ export function PinAuthModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center sm:p-4">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -91,11 +91,13 @@ export function PinAuthModal({
         onClick={onCancel}
       />
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={shake ? { scale: 1, opacity: 1, x: [0, -8, 8, -8, 8, 0] } : { scale: 1, opacity: 1, x: 0 }}
-        transition={shake ? { duration: 0.4 } : { type: "spring", stiffness: 300, damping: 25 }}
-        className="dash-card w-full max-w-xs p-8 rounded-3xl border dash-border relative shadow-2xl flex flex-col items-center text-center"
+        initial={{ y: "100%", opacity: 0 }}
+        animate={shake ? { y: 0, opacity: 1, x: [0, -8, 8, -8, 8, 0] } : { y: 0, opacity: 1, x: 0 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={shake ? { duration: 0.4 } : { type: "spring", stiffness: 340, damping: 32 }}
+        className="dash-card w-full sm:max-w-xs px-8 pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pb-8 rounded-t-3xl sm:rounded-3xl border dash-border relative shadow-2xl flex flex-col items-center text-center"
       >
+        <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ backgroundColor: "var(--border-md)" }} />
         <button
           onClick={onCancel}
           className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-xl dash-label hover:dash-value dash-action-btn transition-colors"

@@ -61,7 +61,7 @@ export function InventoryReconciliationSheet({ isOpen, onClose, produtos }: Prop
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[120] flex justify-end">
+        <div className="fixed inset-0 z-[120] flex items-end md:justify-end">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -71,16 +71,18 @@ export function InventoryReconciliationSheet({ isOpen, onClose, produtos }: Prop
             onClick={onClose}
           />
 
-          {/* Drawer */}
+          {/* Drawer — bottom sheet em mobile, lateral em md+ */}
           <motion.aside
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
-            className="relative w-full max-w-md h-full flex flex-col shadow-2xl"
+            className="relative w-full md:w-[400px] md:h-full flex flex-col shadow-2xl rounded-t-3xl md:rounded-none max-h-[90dvh] md:max-h-full"
             style={{ backgroundColor: "var(--porcelana)" }}
             onClick={e => e.stopPropagation()}
           >
+            {/* Drag handle (mobile only) */}
+            <div className="w-10 h-1 rounded-full mx-auto mt-3 mb-1 md:hidden" style={{ backgroundColor: "var(--border-md)" }} />
             {/* Header */}
             <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b"
               style={{ borderColor: "var(--border-md)" }}>
@@ -250,7 +252,7 @@ export function InventoryReconciliationSheet({ isOpen, onClose, produtos }: Prop
 
             {/* Footer hint */}
             {!allDone && (
-              <div className="px-6 py-4 border-t" style={{ borderColor: "var(--border)" }}>
+              <div className="px-6 py-4 border-t pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-4" style={{ borderColor: "var(--border)" }}>
                 <p className="text-[10px] font-medium text-center" style={{ color: "var(--ink-4)" }}>
                   Cada ajuste é registrado no histórico de movimentações para auditoria.
                 </p>

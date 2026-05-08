@@ -199,9 +199,16 @@ function ChangeOverlay({ troco, onDismiss }: { troco: number; onDismiss: () => v
 function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center sm:p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="dash-card w-full max-w-sm p-8 rounded-3xl border dash-border relative shadow-2xl flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto">
+      <motion.div
+        initial={{ y: "100%", opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", stiffness: 340, damping: 32 }}
+        className="dash-card w-full sm:max-w-sm px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-8 rounded-t-3xl sm:rounded-3xl border dash-border relative shadow-2xl flex flex-col items-center text-center max-h-[90dvh] overflow-y-auto"
+      >
+        <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ backgroundColor: "var(--border-md)" }} />
         <h3 className="text-lg font-black mb-2">{title}</h3>
         <p className="dash-label text-sm mb-6">{message}</p>
         <div className="w-full flex gap-3">
@@ -241,15 +248,30 @@ interface RecentSale {
 // ─── Discount Modal ───────────────────────────────────────────
 function DiscountModal({ isOpen, onApply, onCancel }: { isOpen: boolean, onApply: (val: number) => void, onCancel: () => void }) {
   const [val, setVal] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, [isOpen]);
+
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center sm:p-4">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="dash-card w-full max-w-sm p-8 rounded-[32px] border dash-border relative shadow-2xl">
+      <motion.div
+        initial={{ y: "100%", opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", stiffness: 340, damping: 32 }}
+        className="dash-card w-full sm:max-w-sm px-6 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-8 rounded-t-3xl sm:rounded-[32px] border dash-border relative shadow-2xl"
+      >
+        <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ backgroundColor: "var(--border-md)" }} />
         <h3 className="text-lg font-black mb-4 text-center">Aplicar Desconto</h3>
         <div className="flex flex-col gap-4">
           <input
-            autoFocus
+            ref={inputRef}
             data-testid="desconto-input"
             type="number"
             step="0.01"
@@ -1668,7 +1690,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
           </div>
         </div>
 
-        <footer className="p-4 md:p-6 pb-10 md:pb-6 bg-[var(--porcelana)] border-t dash-border space-y-3 md:space-y-4 relative z-10 shrink-0">
+        <footer className="p-4 md:p-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] md:pb-6 bg-[var(--porcelana)] border-t dash-border space-y-3 md:space-y-4 relative z-10 shrink-0">
           <div className="flex flex-col gap-1">
             
             <div className="flex items-center justify-between dash-muted p-4 rounded-3xl border dash-border shadow-inner">

@@ -108,7 +108,7 @@ export function SaleDetailSheet({ sale, onClose }: SaleDetailSheetProps) {
         </div>
 
         {/* Summary footer */}
-        <div className="border-t dash-border px-6 py-5 space-y-2.5">
+        <div className="border-t dash-border px-6 py-5 space-y-2.5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
           <div className="flex justify-between text-sm">
             <span className="dash-label font-semibold">Subtotal</span>
             <span className="dash-value font-bold tabular-nums">{fmt(subtotal)}</span>
