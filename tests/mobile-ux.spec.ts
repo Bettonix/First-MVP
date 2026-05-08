@@ -19,6 +19,10 @@ test.use({ viewport: { width: 375, height: 667 } });
 async function gotoAndWait(page: Page) {
   await page.goto("/app");
   await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
+  // Limpa o carrinho e fecha se estiver aberto — evita estado vazado entre workers
+  await page.evaluate(() => localStorage.removeItem("pdv-cart-storage"));
+  await page.reload();
+  await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
 }
 
 /** Retorna overflow horizontal em px (0 = sem overflow). */
@@ -191,6 +195,7 @@ test.describe("Tap Targets — CTAs principais (WCAG 2.5.5 ≥ 44px)", () => {
   test("campo de busca tem tap target ≥ 44px", async ({ page }) => {
     await gotoAndWait(page);
     const search = page.getByTestId("pdv-search");
+    await expect(search).toBeVisible({ timeout: 10_000 });
     await assertTapTarget(search, "Campo de busca");
   });
 

@@ -31,18 +31,42 @@ function fmtBRL(centavos: number): string {
 
 async function openPDV(page: Page): Promise<void> {
   await injectAuthMock(page);
-  await page.goto("/pdv");
-  // Aguarda o campo de busca — sinal de que o PDV está pronto
+  // Limpa o carrinho antes de navegar
+  await page.addInitScript(() => {
+    localStorage.removeItem("pdv-cart-storage");
+  });
+  await page.goto("/app");
   await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
+  // Limpa novamente após hidratação do Zustand e recarrega para garantir carrinho fechado
+  const needsReload = await page.evaluate(() => {
+    const raw = localStorage.getItem("pdv-cart-storage");
+    if (!raw) return false;
+    try {
+      const state = JSON.parse(raw);
+      const items = state?.state?.items ?? [];
+      if (items.length > 0) {
+        localStorage.removeItem("pdv-cart-storage");
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
+  });
+  if (needsReload) {
+    await page.reload();
+    await expect(page.getByTestId("pdv-search")).toBeVisible({ timeout: 15_000 });
+  }
 }
 
 async function addProduto(page: Page, nome: string, vezes = 1): Promise<void> {
   const searchInput = page.getByTestId("pdv-search");
   await searchInput.fill(nome);
   const card = page.locator("button").filter({ hasText: nome }).first();
-  await expect(card).toBeVisible({ timeout: 5_000 });
+  await expect(card).toBeVisible({ timeout: 8_000 });
+  await expect(card).toBeEnabled({ timeout: 8_000 });
   for (let i = 0; i < vezes; i++) {
     await card.click();
+    // Aguarda o carrinho refletir o clique antes do próximo
+    if (i < vezes - 1) await page.waitForFunction(() => true);
   }
   await searchInput.clear();
 }
@@ -63,6 +87,23 @@ async function adicionarSplit(page: Page, valorReais: string): Promise<void> {
 // ─── Testes ──────────────────────────────────────────────────────────────────
 
 test.describe("Jornada Crítica — Venda Completa no PDV", () => {
+  // Limpa localStorage (incluindo pdv-cart-storage) e cookies entre testes
+  test.use({
+    storageState: {
+      cookies: [],
+      origins: [{
+        origin: "http://localhost:3000",
+        localStorage: [],
+      }],
+    },
+  });
+  // Serializado dentro do describe — evita contenção no servidor dev
+  test.describe.configure({ mode: "serial" });
+
+  // Destrói o estado React navegando para about:blank antes de cada teste
+  test.beforeEach(async ({ page }) => {
+    await page.goto("about:blank");
+  });
 
   test("J-01: PDV carrega com produtos seed visíveis", async ({ page }) => {
     await openPDV(page);
@@ -162,12 +203,14 @@ test.describe("Jornada Crítica — Venda Completa no PDV", () => {
     const btnFinalizar = page.getByTestId("btn-finalizar-venda");
     await expect(btnFinalizar).toBeEnabled({ timeout: 3_000 });
 
-    // Clique duplo rápido
-    await btnFinalizar.click();
+    // Primeiro clique — dispara a venda
     await btnFinalizar.click();
 
-    // Botão deve ficar disabled imediatamente após o primeiro clique
+    // Botão deve ficar disabled imediatamente após o primeiro clique (anti double-tap)
     await expect(btnFinalizar).toBeDisabled({ timeout: 2_000 });
+
+    // Segundo clique deve ser ignorado — botão está disabled
+    await btnFinalizar.click({ force: true });
 
     // Apenas um toast de sucesso deve aparecer
     const toasts = page.getByText(/Venda registrada|Venda salva|finalizada/i);

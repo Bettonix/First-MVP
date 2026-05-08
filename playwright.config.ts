@@ -9,8 +9,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  // Docker/CI: 50% dos cores. Local: 1 worker (banco seed compartilhado).
-  workers: process.env.CI ? "50%" : 1,
+  // Docker/CI: 100% dos cores. Local: 1 worker (servidor dev + estado compartilhado).
+  workers: process.env.CI ? "100%" : 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",

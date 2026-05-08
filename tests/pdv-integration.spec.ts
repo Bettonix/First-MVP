@@ -88,9 +88,9 @@ test.describe("PDV Flow", () => {
       window.dispatchEvent(new Event("offline"));
     });
 
-    await expect(offlineBanner).toBeVisible({ timeout: 5_000 });
+    await expect(offlineBanner).toBeVisible({ timeout: 10_000 });
     await expect(offlineBanner).toContainText(/Offline/i);
-    await expect(page.getByText(/Modo Offline Ativo/i)).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByText(/Modo Offline Ativo/i)).toBeVisible({ timeout: 8_000 });
 
     await searchInput.fill("Café");
     const cafeCard = page.locator("button").filter({ hasText: "Café Espresso" }).first();

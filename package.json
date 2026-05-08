@@ -12,10 +12,10 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
-    "qa:local": "docker compose -f docker-compose.qa.yml --profile scan --profile e2e up --build --abort-on-container-exit",
-    "qa:scan": "docker compose -f docker-compose.qa.yml --profile scan up --build --abort-on-container-exit",
-    "qa:e2e": "docker compose -f docker-compose.qa.yml --profile e2e up --build --abort-on-container-exit",
-    "qa:clean": "docker compose -f docker-compose.qa.yml down -v"
+    "qa:local": "docker compose -f .qa-infra/docker-compose.qa.yml --profile scan --profile e2e up --build --abort-on-container-exit",
+    "qa:scan": "docker compose -f .qa-infra/docker-compose.qa.yml --profile scan up --build --abort-on-container-exit",
+    "qa:e2e": "docker compose -f .qa-infra/docker-compose.qa.yml --profile e2e up --build --abort-on-container-exit",
+    "qa:clean": "docker compose -f .qa-infra/docker-compose.qa.yml down -v"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

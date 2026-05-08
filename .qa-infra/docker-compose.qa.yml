@@ -1,0 +1,145 @@
+# ─── DevSecOps QA Stack — Genérico ───────────────────────────────────────────
+#
+# ARQUITETURA UNIVERSAL:
+#   Este arquivo é agnóstico ao projeto. Funciona em qualquer app Next.js
+#   copiando-o para .qa-infra/ e criando um .env.qa na raiz do projeto.
+#
+# VARIÁVEIS OBRIGATÓRIAS (definir no ambiente ou .env.qa):
+#   PROJECT_ROOT  — caminho absoluto da raiz do projeto (default: ..)
+#   SONAR_TOKEN   — token de autenticação do SonarQube
+#   BASE_URL      — URL do frontend para os testes E2E (default: http://next-app:3000)
+#
+# SCRIPTS (adicionar ao package.json do projeto):
+#   qa:e2e    → docker compose -f .qa-infra/docker-compose.qa.yml --profile e2e up --build --abort-on-container-exit
+#   qa:scan   → docker compose -f .qa-infra/docker-compose.qa.yml --profile scan up --build --abort-on-container-exit
+#   qa:local  → docker compose -f .qa-infra/docker-compose.qa.yml --profile scan --profile e2e up --build --abort-on-container-exit
+#   qa:clean  → docker compose -f .qa-infra/docker-compose.qa.yml down -v
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-project-root: &project-root ${PROJECT_ROOT:-..}
+
+services:
+
+  # ── 1. Next.js App (target de testes E2E) ────────────────────────────────────
+  next-app:
+    image: node:20-slim
+    container_name: qa-next-app
+    working_dir: /app
+    volumes:
+      - *project-root:/app
+      - next_node_modules:/app/node_modules
+      - next_build_cache:/app/.next
+    env_file:
+      - ../.env.qa
+    environment:
+      NODE_ENV: production
+      PLAYWRIGHT_TEST_BYPASS: "1"
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    command: >
+      sh -c "npm install --prefer-offline --no-audit &&
+             npx next build &&
+             npx next start -p 3000"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 2>/dev/null | grep -q 'html' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+    profiles:
+      - e2e
+
+  # ── 2. Playwright E2E ────────────────────────────────────────────────────────
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.50.0-jammy
+    container_name: qa-playwright
+    depends_on:
+      next-app:
+        condition: service_healthy
+    ipc: host
+    working_dir: /app
+    volumes:
+      - *project-root:/app
+      - playwright_node_modules:/app/node_modules
+      - *project-root/test-results:/app/test-results
+      - *project-root/playwright-report:/app/playwright-report
+    environment:
+      BASE_URL: ${BASE_URL:-http://next-app:3000}
+      CI: "true"
+      PLAYWRIGHT_TEST_BYPASS: "1"
+    command: >
+      sh -c "npm install --prefer-offline --no-audit &&
+             npx playwright install chromium &&
+             npx playwright test --reporter=line"
+    profiles:
+      - e2e
+
+  # ── 3. SonarQube ─────────────────────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: qa-sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+    profiles:
+      - scan
+
+  # ── 4. Sonar Scanner ─────────────────────────────────────────────────────────
+  sonar-scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    container_name: qa-sonar-scanner
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+    environment:
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN}
+    volumes:
+      - *project-root:/usr/src
+      - sonar_cache:/opt/sonar-scanner/.sonar/cache
+    working_dir: /usr/src
+    command: >
+      -Dsonar.host.url=http://sonarqube:9000
+      -Dsonar.token=${SONAR_TOKEN}
+    profiles:
+      - scan
+
+  # ── 5. Security Scan (Trivy) ─────────────────────────────────────────────────
+  security-scan:
+    image: aquasec/trivy:latest
+    container_name: qa-trivy
+    volumes:
+      - *project-root:/project:ro
+      - trivy_cache:/root/.cache/trivy
+    command: >
+      fs
+      --severity HIGH,CRITICAL
+      --exit-code 1
+      --no-progress
+      --ignore-unfixed
+      /project
+    profiles:
+      - scan
+
+volumes:
+  next_node_modules:
+  next_build_cache:
+  playwright_node_modules:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonar_cache:
+  trivy_cache:

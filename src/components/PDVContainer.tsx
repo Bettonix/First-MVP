@@ -1385,7 +1385,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       </div>
 
       {/* ─── SIDE PANEL (CARRINHO / CHECKOUT PRO) (COLUNA DIREITA) ─── */}
-      <div className={`fixed inset-0 z-[140] md:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
+      <div data-testid="cart-backdrop" className={`fixed inset-0 z-[140] md:hidden bg-black/80 backdrop-blur-md transition-opacity duration-500 ${cartOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setCartOpen(false)} />
 
       <form
         noValidate

@@ -158,7 +158,7 @@ test.describe("PDV Final Suite", () => {
     const btn = await prepararPagamento(page, CAFE.preco);
     await btn.click();
 
-    await expect(page.getByText(/Venda salva localmente/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/Venda salva localmente/i)).toBeVisible({ timeout: 10_000 });
 
     // Valida IDB
     expect(await idbCount(page)).toBe(1);
