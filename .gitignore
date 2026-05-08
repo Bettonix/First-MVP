@@ -17,6 +17,7 @@ dist/
 .env
 .env*
 !.env.example
+!.env.qa
 *.pem
 
 # --- PRISMA E BANCO DE DADOS ---
@@ -42,3 +43,8 @@ next-env.d.ts
 
 # --- CACHE ---
 .turbo/
+
+# --- PLAYWRIGHT ---
+tests/e2e/.auth/
+test-results/
+playwright-report/

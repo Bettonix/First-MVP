@@ -1,16 +1,82 @@
 # ─── DevSecOps QA Stack — First MVP ──────────────────────────────────────────
-# Uso: npm run qa:local   (sobe toda a esteira)
-#      npm run qa:clean   (derruba e limpa volumes)
 #
-# PRÉ-REQUISITO: o frontend deve estar rodando em localhost:3000
-#   (npm run dev ou npm run start) antes de subir o playwright.
+# ARQUITETURA:
+#   - next-app: builda e serve o Next.js dentro da rede Docker (porta 3000)
+#   - playwright: aguarda next-app healthy, roda testes E2E apontando para ele
+#   - sonarqube: servidor de análise estática (porta 9000)
+#   - sonar-scanner: analisa o código e envia para o sonarqube
+#   - security-scan: Trivy varre dependências por CVEs HIGH/CRITICAL
 #
-# SONAR_TOKEN deve estar definido no ambiente do host ou em .env.local.
+# SCRIPTS:
+#   npm run qa:e2e    → sobe next-app + playwright (profile: e2e)
+#   npm run qa:scan   → sobe sonarqube + sonar-scanner + trivy (profile: scan)
+#   npm run qa:local  → tudo junto
+#   npm run qa:clean  → derruba e limpa volumes
+#
+# PRÉ-REQUISITO:
+#   Copie .env.example → .env.qa e preencha as variáveis do Supabase.
+#   SONAR_TOKEN deve estar definido no ambiente do host.
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
 
-  # ── 1. SonarQube ─────────────────────────────────────────────────────────────
+  # ── 1. Next.js App (target de testes E2E) ────────────────────────────────────
+  next-app:
+    image: node:20-slim
+    container_name: first-mvp-next-app
+    working_dir: /app
+    volumes:
+      - .:/app
+      - next_node_modules:/app/node_modules
+      - next_build_cache:/app/.next
+    env_file:
+      - .env.qa
+    environment:
+      NODE_ENV: production
+      PLAYWRIGHT_TEST_BYPASS: "1"
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    command: >
+      sh -c "npm install --prefer-offline --no-audit &&
+             npx next build &&
+             npx next start -p 3000"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health 2>/dev/null || wget -qO- http://localhost:3000 | grep -q 'html'"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+    profiles:
+      - e2e
+
+  # ── 2. Playwright E2E ────────────────────────────────────────────────────────
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.50.0-jammy
+    container_name: first-mvp-playwright
+    depends_on:
+      next-app:
+        condition: service_healthy
+    # ipc: host evita OOM do Chrome em containers com memória limitada
+    ipc: host
+    working_dir: /app
+    volumes:
+      - .:/app
+      - playwright_node_modules:/app/node_modules
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      BASE_URL: http://next-app:3000
+      CI: "true"
+      PLAYWRIGHT_TEST_BYPASS: "1"
+    command: >
+      sh -c "npm install --prefer-offline --no-audit &&
+             npx playwright install chromium &&
+             npx playwright test --reporter=line"
+    profiles:
+      - e2e
+
+  # ── 3. SonarQube ─────────────────────────────────────────────────────────────
   sonarqube:
     image: sonarqube:lts-community
     container_name: first-mvp-sonarqube
@@ -29,8 +95,10 @@ services:
       retries: 10
       start_period: 60s
     restart: unless-stopped
+    profiles:
+      - scan
 
-  # ── 2. Sonar Scanner ─────────────────────────────────────────────────────────
+  # ── 4. Sonar Scanner ─────────────────────────────────────────────────────────
   sonar-scanner:
     image: sonarsource/sonar-scanner-cli:latest
     container_name: first-mvp-sonar-scanner
@@ -44,14 +112,13 @@ services:
       - .:/usr/src
       - sonar_cache:/opt/sonar-scanner/.sonar/cache
     working_dir: /usr/src
-    # Sobrescreve sonar.host.url do properties para apontar ao container interno
     command: >
       -Dsonar.host.url=http://sonarqube:9000
       -Dsonar.token=${SONAR_TOKEN}
     profiles:
       - scan
 
-  # ── 3. Security Scan (Trivy) ─────────────────────────────────────────────────
+  # ── 5. Security Scan (Trivy) ─────────────────────────────────────────────────
   security-scan:
     image: aquasec/trivy:latest
     container_name: first-mvp-trivy
@@ -69,27 +136,10 @@ services:
     profiles:
       - scan
 
-  # ── 4. Playwright E2E ────────────────────────────────────────────────────────
-  playwright:
-    image: mcr.microsoft.com/playwright:v1.50.0-jammy
-    container_name: first-mvp-playwright
-    # ipc: host evita OOM do Chrome em ambientes com memória limitada
-    ipc: host
-    # network_mode: host permite enxergar localhost:3000 do host diretamente
-    network_mode: host
-    volumes:
-      - .:/app
-      - /app/node_modules
-    working_dir: /app
-    environment:
-      # Aponta para o frontend rodando no host
-      BASE_URL: http://localhost:3000
-      CI: "true"
-    command: npx playwright test --reporter=line
-    profiles:
-      - e2e
-
 volumes:
+  next_node_modules:
+  next_build_cache:
+  playwright_node_modules:
   sonarqube_data:
   sonarqube_logs:
   sonarqube_extensions:
