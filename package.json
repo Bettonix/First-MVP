@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sonar": "docker run --rm -e SONAR_HOST_URL=http://host.docker.internal:9000 -e SONAR_TOKEN=$SONAR_TOKEN -v \"$(pwd):/usr/src\" sonarsource/sonar-scanner-cli"
+    "sonar": "docker run --rm -e SONAR_HOST_URL=http://host.docker.internal:9000 -e SONAR_TOKEN=$SONAR_TOKEN -v \"$(pwd):/usr/src\" sonarsource/sonar-scanner-cli",
+    "qa:local": "docker compose -f docker-compose.qa.yml --profile scan --profile e2e up --build --abort-on-container-exit",
+    "qa:scan": "docker compose -f docker-compose.qa.yml --profile scan up --build --abort-on-container-exit",
+    "qa:e2e": "docker compose -f docker-compose.qa.yml --profile e2e up --build --abort-on-container-exit",
+    "qa:clean": "docker compose -f docker-compose.qa.yml down -v"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

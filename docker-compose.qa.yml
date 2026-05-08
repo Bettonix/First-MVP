@@ -1,0 +1,97 @@
+# ─── DevSecOps QA Stack — First MVP ──────────────────────────────────────────
+# Uso: npm run qa:local   (sobe toda a esteira)
+#      npm run qa:clean   (derruba e limpa volumes)
+#
+# PRÉ-REQUISITO: o frontend deve estar rodando em localhost:3000
+#   (npm run dev ou npm run start) antes de subir o playwright.
+#
+# SONAR_TOKEN deve estar definido no ambiente do host ou em .env.local.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── 1. SonarQube ─────────────────────────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: first-mvp-sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── 2. Sonar Scanner ─────────────────────────────────────────────────────────
+  sonar-scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    container_name: first-mvp-sonar-scanner
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+    environment:
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN}
+    volumes:
+      - .:/usr/src
+      - sonar_cache:/opt/sonar-scanner/.sonar/cache
+    working_dir: /usr/src
+    # Sobrescreve sonar.host.url do properties para apontar ao container interno
+    command: >
+      -Dsonar.host.url=http://sonarqube:9000
+      -Dsonar.token=${SONAR_TOKEN}
+    profiles:
+      - scan
+
+  # ── 3. Security Scan (Trivy) ─────────────────────────────────────────────────
+  security-scan:
+    image: aquasec/trivy:latest
+    container_name: first-mvp-trivy
+    volumes:
+      - .:/project:ro
+      - trivy_cache:/root/.cache/trivy
+    # exit-code 1 → falha a esteira se achar HIGH ou CRITICAL
+    command: >
+      fs
+      --severity HIGH,CRITICAL
+      --exit-code 1
+      --no-progress
+      --ignore-unfixed
+      /project
+    profiles:
+      - scan
+
+  # ── 4. Playwright E2E ────────────────────────────────────────────────────────
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.50.0-jammy
+    container_name: first-mvp-playwright
+    # ipc: host evita OOM do Chrome em ambientes com memória limitada
+    ipc: host
+    # network_mode: host permite enxergar localhost:3000 do host diretamente
+    network_mode: host
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    environment:
+      # Aponta para o frontend rodando no host
+      BASE_URL: http://localhost:3000
+      CI: "true"
+    command: npx playwright test --reporter=line
+    profiles:
+      - e2e
+
+volumes:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonar_cache:
+  trivy_cache:
