@@ -24,9 +24,7 @@ import { CashActions } from "./CashActions";
 import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { SetupChecklist } from "./SetupChecklist";
-import { SearchHotspot, useSearchHotspot } from "./SearchHotspot";
-import { useFirstSaleConfetti } from "@/hooks/useFirstSaleConfetti";
-import { GraduationModal } from "./GraduationModal";
+
 import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo } from "react";
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
@@ -574,9 +572,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { fireConfetti } = useFirstSaleConfetti();
-  const { dismissed: hotspotDismissed } = useSearchHotspot();
-  const [graduationOpen, setGraduationOpen] = useState(false);
   const [selectedHistoryDate, setSelectedHistoryDate] = useState(new Date());
   const [selectedDashboardDate, setSelectedDashboardDate] = useState(new Date());
   const [isMounted, setIsMounted] = useState(false);
@@ -952,10 +947,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
       } else {
         doReset();
         showToast("Venda finalizada!");
-        const wasFirst = fireConfetti();
-        if (wasFirst) {
-          setTimeout(() => setGraduationOpen(true), 2800);
-        }
       }
     },
     onError: (err: Error) => {
@@ -1183,7 +1174,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full h-12 dash-muted border dash-border rounded-xl pl-12 pr-10 text-sm font-bold focus:border-[var(--brasa)] focus:dash-muted outline-none transition-all placeholder:text-neutral-600"
                     />
-                    <SearchHotspot dismissed={hotspotDismissed} />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setActiveTab("todos")} className={`px-4 h-12 rounded-xl text-xs font-bold border transition-all ${activeTab === "todos" ? 'border-[var(--brasa-border)] dash-icon-accent dash-highlight-text' : 'dash-border dash-muted dash-label hover:dash-value'}`}>Todos</button>
@@ -1936,8 +1926,6 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         {discountModalOpen && <DiscountModal isOpen={discountModalOpen} onApply={(val) => { setDesconto(val); setDiscountModalOpen(false); showToast("Desconto aplicado!"); }} onCancel={() => setDiscountModalOpen(false)} />}
       </AnimatePresence>
 
-      {/* ─── GRADUATION MODAL ─── */}
-      <GraduationModal open={graduationOpen} onClose={() => setGraduationOpen(false)} />
 
       {/* ─── SALE DETAIL SHEET ─── */}
       <SaleDetailSheet sale={selectedSale} onClose={() => setSelectedSale(null)} />

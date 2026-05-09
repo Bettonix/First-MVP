@@ -51,8 +51,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/app') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/settings') ||
-    pathname.startsWith('/historico') ||
-    pathname.startsWith('/onboarding')
+    pathname.startsWith('/historico')
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()

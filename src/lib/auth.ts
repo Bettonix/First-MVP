@@ -59,7 +59,7 @@ export async function getSessionContext(): Promise<SessionContext> {
     };
   }
 
-  redirect("/onboarding");
+  redirect("/login");
 }
 
 /** Atalho para actions que só precisam do tenantId (mantém compatibilidade). */

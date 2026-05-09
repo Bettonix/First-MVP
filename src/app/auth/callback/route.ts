@@ -38,10 +38,10 @@ export async function GET(request: Request) {
   });
 
   // Tenant existe → vai direto para o PDV
-  // Tenant não existe → primeiro acesso, vai para o Onboarding
+  // Tenant não existe → conta sem setup, redireciona para login com erro
   if (vendedor) {
     return NextResponse.redirect(`${siteUrl}/`);
   } else {
-    return NextResponse.redirect(`${siteUrl}/onboarding`);
+    return NextResponse.redirect(`${siteUrl}/login?error=AccountNotSetup`);
   }
 }
