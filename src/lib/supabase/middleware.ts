@@ -44,6 +44,8 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  const isSignOut = pathname === '/auth/signout'
+  const isOnboarding = pathname.startsWith('/onboarding')
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/auth')
   const isLandingPage = pathname === '/'
 
@@ -59,7 +61,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && (isAuthRoute || isLandingPage)) {
+  if (user && !isSignOut && !isOnboarding && (isAuthRoute || isLandingPage)) {
     const url = request.nextUrl.clone()
     url.pathname = '/app'
     return NextResponse.redirect(url)

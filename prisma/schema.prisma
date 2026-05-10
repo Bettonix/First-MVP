@@ -31,9 +31,14 @@ model Vendedor {
   nomeLoja         String
   nicho            String   @default("outros")
   metodosPagamento String[] @default([])
+  onboardingStep   Int      @default(0) @map("onboarding_step")
   criadoEm         DateTime @default(now())
   pinGerente       String?  @map("pin_gerente")
   instagramUrl     String?  @map("instagram_url")
+  logoUrl          String?  @map("logo_url")
+  cnpjCpf          String?  @map("cnpj_cpf")
+  telefone         String?
+  mensagemRecibo   String?  @map("mensagem_recibo") @default("Obrigado pela preferência! Volte sempre.")
 
   operadores Profile[]
 

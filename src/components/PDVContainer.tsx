@@ -25,7 +25,7 @@ import { PremiumDatePicker } from "./DatePicker";
 import { fmtBRL, safeCentavos } from "@/lib/currency";
 import { SetupChecklist } from "./SetupChecklist";
 
-import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useOptimistic, memo, useCallback, useMemo, useTransition } from "react";
 import type { UserRole } from "@/lib/auth";
 import { motion, AnimatePresence, LayoutGroup, useMotionValue, useTransform } from "framer-motion";
 import { useSensoryFeedback } from "@/hooks/useSensoryFeedback";
@@ -546,6 +546,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
   const subtotal = subtotalCentavos();
   const total = totalCentavos();
   const [cartOpen, setCartOpen] = useState(false);
+  const [, startOptimisticTransition] = useTransition();
   const [produtosList, setProdutosList] = useState<ProdutoPDV[]>(initialProdutos ?? []);
   const [optimisticProdutos, addOptimisticProduto] = useOptimistic(
     produtosList,
@@ -648,7 +649,9 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
 
   const handleAddProduct = useCallback((id: string, nome: string, preco: number) => {
     // Optimistic UI — atualiza estoque local imediatamente (Step 3)
-    addOptimisticProduto({ type: 'update', payload: { id, nome, precoCentavos: safeCentavos(preco), precoCustoCentavos: 0, categoria: '', estoqueAtual: Math.max(0, (produtos.find(p => String(p.id) === id)?.estoqueAtual ?? 1) - 1), estoqueInicial: 0, estoqueMinimo: 0, gerenciarEstoque: false, isFavorito: false } });
+    startOptimisticTransition(() => {
+      addOptimisticProduto({ type: 'update', payload: { id, nome, precoCentavos: safeCentavos(preco), precoCustoCentavos: 0, categoria: '', estoqueAtual: Math.max(0, (produtos.find(p => String(p.id) === id)?.estoqueAtual ?? 1) - 1), estoqueInicial: 0, estoqueMinimo: 0, gerenciarEstoque: false, isFavorito: false } });
+    });
     addItem({ produtoId: id, nome, precoCentavos: safeCentavos(preco) });
     setCartOpen(true);
   }, [addItem, addOptimisticProduto, produtos]);
@@ -1113,7 +1116,7 @@ export function PDVContainer({ isTurnoAberto, nomeLoja, instagramUrl, insights, 
         </header>
 
         {/* Dashboard Bar (Resumo Operacional) */}
-        <section className="px-4 md:px-6 py-3 md:py-4 bg-[var(--parchment)] flex flex-shrink-0 gap-3 md:gap-6 overflow-x-auto border-b dash-border scrollbar-hide">
+        <section className="px-4 md:px-6 py-3 md:py-4 bg-[var(--parchment)] flex flex-shrink-0 gap-3 md:gap-6 overflow-x-auto overflow-y-hidden border-b dash-border scrollbar-hide">
           <div className="flex-1 min-w-[160px] md:min-w-[200px] dash-card border dash-border rounded-2xl p-3 md:p-4 flex items-center gap-3 md:gap-4">
             <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl dash-icon-accent flex items-center justify-center dash-highlight-text"><Lock size={22}/></div>
             <div>

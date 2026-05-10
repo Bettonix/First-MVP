@@ -38,10 +38,11 @@ export async function getSessionContext(): Promise<SessionContext> {
   // Caso 1: é o gerente (dono do negócio)
   const vendedor = await prisma.vendedor.findUnique({
     where: { authId: user.id },
-    select: { id: true },
+    select: { id: true, onboardingStep: true },
   });
 
   if (vendedor) {
+    if (vendedor.onboardingStep < 6) redirect("/onboarding");
     return { authId: user.id, tenantId: vendedor.id, role: "GERENTE" };
   }
 
@@ -59,7 +60,8 @@ export async function getSessionContext(): Promise<SessionContext> {
     };
   }
 
-  redirect("/login");
+  // Usuário autenticado mas sem Vendedor/Profile — precisa completar onboarding
+  redirect("/onboarding");
 }
 
 /** Atalho para actions que só precisam do tenantId (mantém compatibilidade). */

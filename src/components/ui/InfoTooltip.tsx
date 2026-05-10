@@ -58,8 +58,8 @@ export function InfoTooltip({ text, position = "top", className = "" }: InfoTool
       onFocus={() => setVisible(true)}
       onBlur={() => setVisible(false)}
     >
-      <button
-        type="button"
+      <span
+        role="img"
         aria-label={text}
         aria-describedby={visible ? "tooltip-content" : undefined}
         tabIndex={0}
@@ -70,7 +70,7 @@ export function InfoTooltip({ text, position = "top", className = "" }: InfoTool
           className="text-[var(--ink-3)] hover:text-[var(--brasa)] transition-colors cursor-help"
           aria-hidden="true"
         />
-      </button>
+      </span>
 
       {/* Balão */}
       <span

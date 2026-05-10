@@ -232,3 +232,89 @@ export async function updateInstagramUrl(
   revalidatePath("/settings");
   return { ok: true };
 }
+
+// ─── PDV Settings ─────────────────────────────────────────────────────────────
+export async function getMetodosPagamento(): Promise<string[]> {
+  const tenantId = await getTenantIdOrRedirect();
+  const v = await prisma.vendedor.findUnique({ where: { id: tenantId }, select: { metodosPagamento: true } });
+  return v?.metodosPagamento ?? [];
+}
+
+export async function updateMetodosPagamento(metodos: string[]): Promise<{ ok: true } | { error: string }> {
+  const { tenantId } = await requireGerente();
+  if (metodos.length === 0) return { error: "Selecione ao menos um método de pagamento." };
+  await prisma.vendedor.update({ where: { id: tenantId }, data: { metodosPagamento: metodos } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function getMensagemRecibo(): Promise<string> {
+  const tenantId = await getTenantIdOrRedirect();
+  const v = await prisma.vendedor.findUnique({ where: { id: tenantId }, select: { mensagemRecibo: true } });
+  return v?.mensagemRecibo ?? "Obrigado pela preferência! Volte sempre.";
+}
+
+export async function updateMensagemRecibo(msg: string): Promise<{ ok: true } | { error: string }> {
+  const { tenantId } = await requireGerente();
+  await prisma.vendedor.update({ where: { id: tenantId }, data: { mensagemRecibo: msg.trim() || null } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function getDadosNegocio(): Promise<{ cnpjCpf: string; telefone: string }> {
+  const tenantId = await getTenantIdOrRedirect();
+  const v = await prisma.vendedor.findUnique({ where: { id: tenantId }, select: { cnpjCpf: true, telefone: true } });
+  return { cnpjCpf: v?.cnpjCpf ?? "", telefone: v?.telefone ?? "" };
+}
+
+export async function updateDadosNegocio(data: { cnpjCpf?: string; telefone?: string }): Promise<{ ok: true } | { error: string }> {
+  const { tenantId } = await requireGerente();
+  await prisma.vendedor.update({
+    where: { id: tenantId },
+    data: { cnpjCpf: data.cnpjCpf?.trim() || null, telefone: data.telefone?.trim() || null },
+  });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+// ─── Segurança (PIN) ──────────────────────────────────────────────────────────
+export async function getPinStatus(): Promise<boolean> {
+  const tenantId = await getTenantIdOrRedirect();
+  const v = await prisma.vendedor.findUnique({ where: { id: tenantId }, select: { pinGerente: true } });
+  return !!v?.pinGerente;
+}
+
+export async function updatePin(
+  pinAtual: string | null,
+  pinNovo: string
+): Promise<{ ok: true } | { error: string }> {
+  const { tenantId } = await requireGerente();
+  if (!/^\d{4,6}$/.test(pinNovo)) return { error: "PIN deve ter 4 a 6 dígitos numéricos." };
+
+  const v = await prisma.vendedor.findUnique({ where: { id: tenantId }, select: { pinGerente: true } });
+
+  if (v?.pinGerente) {
+    if (!pinAtual) return { error: "Informe o PIN atual para alterá-lo." };
+    const bcrypt = await import("bcryptjs");
+    const ok = await bcrypt.compare(pinAtual, v.pinGerente);
+    if (!ok) return { error: "PIN atual incorreto." };
+  }
+
+  const bcrypt = await import("bcryptjs");
+  const hash = await bcrypt.hash(pinNovo, 10);
+  await prisma.vendedor.update({ where: { id: tenantId }, data: { pinGerente: hash } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function removePin(pinAtual: string): Promise<{ ok: true } | { error: string }> {
+  const { tenantId } = await requireGerente();
+  const v = await prisma.vendedor.findUnique({ where: { id: tenantId }, select: { pinGerente: true } });
+  if (!v?.pinGerente) return { error: "Nenhum PIN configurado." };
+  const bcrypt = await import("bcryptjs");
+  const ok = await bcrypt.compare(pinAtual, v.pinGerente);
+  if (!ok) return { error: "PIN incorreto." };
+  await prisma.vendedor.update({ where: { id: tenantId }, data: { pinGerente: null } });
+  revalidatePath("/settings");
+  return { ok: true };
+}
